@@ -1,0 +1,37 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/BuildingBlocks.Application/BuildingBlocks.Application.csproj" />
+    <Project Path="src/BuildingBlocks/BuildingBlocks.Contracts/BuildingBlocks.Contracts.csproj" />
+    <Project Path="src/BuildingBlocks/BuildingBlocks.Domain/BuildingBlocks.Domain.csproj" />
+    <Project Path="src/BuildingBlocks/BuildingBlocks.Infrastructure/BuildingBlocks.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/GameEngine/">
+    <Project Path="src/GameEngine/GameEngine.Core/GameEngine.Core.csproj" />
+  </Folder>
+  <Folder Name="/src/Games/">
+    <Project Path="src/Games/UNO/UNO.csproj" />
+  </Folder>
+  <Folder Name="/src/Gateway/">
+    <Project Path="src/Gateway/Gateway/Gateway.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/Game/">
+    <Project Path="src/Services/Game/Game.Api/Game.Api.csproj" />
+    <Project Path="src/Services/Game/Game.Application/Game.Application.csproj" />
+    <Project Path="src/Services/Game/Game.Domain/Game.Domain.csproj" />
+    <Project Path="src/Services/Game/Game.Infrastructure/Game.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Identity/">
+    <Project Path="src/Services/Identity/Identity.Api/Identity.Api.csproj" />
+    <Project Path="src/Services/Identity/Identity.Application/Identity.Application.csproj" />
+    <Project Path="src/Services/Identity/Identity.Domain/Identity.Domain.csproj" />
+    <Project Path="src/Services/Identity/Identity.Infrastructure/Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/Lobby/">
+    <Project Path="src/Services/Lobby/Lobby.Api/Lobby.Api.csproj" />
+    <Project Path="src/Services/Lobby/Lobby.Application/Lobby.Application.csproj" />
+    <Project Path="src/Services/Lobby/Lobby.Domain/Lobby.Domain.csproj" />
+    <Project Path="src/Services/Lobby/Lobby.Infrastructure/Lobby.Infrastructure.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,930 @@
+# Board Game Platform - Phase 1 Foundation Specification
+
+## Objective
+
+Build the foundation of a production-ready online multiplayer board game platform.
+
+This phase should establish the architecture that all future development will build upon.
+
+The goal is **NOT** to create a playable game yet.
+
+The goal is to create a scalable platform that allows implementing games like:
+
+- UNO
+- Splendor
+- Wingspan
+- Azul
+- Terraforming Mars
+- Ticket to Ride
+- etc.
+
+without requiring architectural changes.
+
+The implementation should focus on infrastructure, communication, authentication, rooms, and the game engine foundation.
+
+The codebase should be maintainable for many years.
+
+---
+
+# Development Principles
+
+Always prioritize:
+
+- Simplicity
+- Maintainability
+- Scalability
+- Separation of concerns
+- Clean Architecture
+- SOLID principles
+- Composition over inheritance
+- Domain Driven Design where appropriate
+
+Never over-engineer.
+
+Only build abstractions that are actually needed.
+
+---
+
+# Technology Stack
+
+## Backend
+
+- .NET 9 (latest stable)
+- ASP.NET Core
+- C#
+- Entity Framework Core
+- PostgreSQL
+- Redis
+- RabbitMQ
+- SignalR
+- JWT Authentication
+- FluentValidation
+- Serilog
+- Swagger/OpenAPI
+
+---
+
+# Architecture
+
+Use Microservice Architecture from the beginning.
+
+Initially create the following services:
+
+- Identity Service
+- Lobby Service
+- Game Service
+- API Gateway (simple reverse proxy, can be minimal)
+
+Create a Shared BuildingBlocks project for common functionality.
+
+Each service must be independently deployable.
+
+Use Docker Compose for local development.
+
+---
+
+# Solution Structure
+
+Create the following repository structure.
+
+```text
+BoardGamePlatform/
+
+    backend/
+
+        src/
+
+            BuildingBlocks/
+
+                BuildingBlocks.Domain
+                BuildingBlocks.Application
+                BuildingBlocks.Infrastructure
+                BuildingBlocks.Contracts
+
+            Gateway/
+
+            Services/
+
+                Identity/
+
+                    Identity.Api
+                    Identity.Application
+                    Identity.Domain
+                    Identity.Infrastructure
+
+                Lobby/
+
+                    Lobby.Api
+                    Lobby.Application
+                    Lobby.Domain
+                    Lobby.Infrastructure
+
+                Game/
+
+                    Game.Api
+                    Game.Application
+                    Game.Domain
+                    Game.Infrastructure
+
+            GameEngine/
+
+                GameEngine.Core
+
+            Games/
+
+                UNO/
+
+tests/
+
+docs/
+
+docker/
+```
+
+---
+
+# Service Responsibilities
+
+## Identity Service
+
+Responsible for:
+
+- Registration
+- Login
+- JWT
+- Refresh Token
+- User Profile
+- Authentication
+- Authorization
+
+Nothing else.
+
+---
+
+## Lobby Service
+
+Responsible for:
+
+- Lobby
+- Rooms
+- Room Players
+- Ready State
+- Host Management
+- Start Game
+- Waiting Room
+
+The Lobby Service must never know game rules.
+
+---
+
+## Game Service
+
+Responsible for:
+
+- Creating Game Sessions
+- Managing active games
+- SignalR communication
+- Game lifecycle
+- Calling the Game Engine
+
+Game-specific rules belong inside Games/*.
+
+---
+
+# Shared BuildingBlocks
+
+Create reusable infrastructure.
+
+Include:
+
+- Result pattern
+- Base Entity
+- Integration Events
+- Common Exceptions
+- Middleware
+- Logging
+- Authentication helpers
+- Shared Contracts
+
+Do NOT include game-specific code.
+
+---
+
+# Communication
+
+## Synchronous
+
+Use REST APIs.
+
+## Real-time
+
+Use SignalR.
+
+## Asynchronous
+
+Use RabbitMQ.
+
+RabbitMQ should be introduced now even if only a few events exist.
+
+Example future events:
+
+- UserRegistered
+- RoomCreated
+- RoomClosed
+- PlayerJoinedRoom
+- PlayerLeftRoom
+- GameStarted
+- GameFinished
+
+---
+
+# Redis
+
+Configure Redis from the beginning.
+
+Use Redis for:
+
+- Distributed Cache
+- SignalR Backplane
+- Active Game Sessions
+- Temporary Room Data
+
+Even if only part of it is initially used.
+
+---
+
+# Database
+
+Each microservice owns its own PostgreSQL database.
+
+No shared database.
+
+Example:
+
+IdentityDb
+
+LobbyDb
+
+GameDb
+
+---
+
+# Authentication
+
+Implement completely.
+
+Features:
+
+- Register
+- Login
+- Refresh Token
+- Logout
+- Current User
+
+JWT authentication.
+
+---
+
+# Lobby
+
+Implement completely.
+
+Features:
+
+- Create Room
+- Join Room
+- Leave Room
+- Ready
+- Unready
+- Kick Player
+- Transfer Host
+- Start Game
+
+No matchmaking.
+
+No friends.
+
+No chat.
+
+---
+
+# Waiting Room
+
+Implement using SignalR.
+
+Support real-time updates for:
+
+- Player joined
+- Player left
+- Player ready
+- Host changed
+- Room closed
+
+---
+
+# Game Session
+
+Separate Room from Game.
+
+Room
+
+↓
+
+GameSession
+
+↓
+
+GameState
+
+Create GameSession infrastructure only.
+
+Do NOT implement UNO.
+
+---
+
+# Game Engine
+
+Implement ONLY the engine infrastructure.
+
+The Game Engine is responsible for:
+
+- Loading game
+- Creating game
+- Processing player actions
+- Returning updated game state
+
+The Game Engine must NOT know:
+
+- HTTP
+- SignalR
+- EF Core
+- PostgreSQL
+- RabbitMQ
+
+It should be pure business logic.
+
+---
+
+# Games
+
+Create the folder structure.
+
+Games/
+
+    Splendor/
+
+Only create the project.
+
+Do NOT implement game logic yet.
+
+---
+
+# SignalR
+
+Create one GameHub.
+
+Responsibilities:
+
+- Connection
+- Join Room
+- Leave Room
+- Broadcast room updates
+- Broadcast game updates
+
+The Hub must contain no business logic.
+
+---
+
+# API Gateway
+
+Create a simple gateway.
+
+Responsibilities:
+
+- Routing
+- Authentication forwarding
+- Reverse proxy
+
+No business logic.
+
+---
+
+# Persistence
+
+Configure EF Core.
+
+Create migrations.
+
+Create databases.
+
+Only create infrastructure.
+
+---
+
+# Logging
+
+Configure Serilog.
+
+Structured logging.
+
+Log:
+
+- Requests
+- Authentication
+- Room lifecycle
+- Game lifecycle
+- Exceptions
+
+---
+
+# Validation
+
+Use FluentValidation.
+
+Validation belongs inside Application layer.
+
+Never inside Controllers.
+
+---
+
+# Error Handling
+
+Global Exception Middleware.
+
+Return RFC7807 ProblemDetails.
+
+---
+
+# Docker
+
+Create Dockerfiles for every service.
+
+Create docker-compose.yml containing:
+
+- API Gateway
+- Identity Service
+- Lobby Service
+- Game Service
+- PostgreSQL (one instance per service or separate containers, your architectural choice)
+- Redis
+- RabbitMQ
+
+Running one command should start the complete development environment.
+
+---
+
+# Swagger
+
+Enable Swagger for every service.
+
+---
+
+# XML Documentation
+
+Enable XML documentation generation.
+
+Document every public API.
+
+---
+
+# Out Of Scope
+
+Do NOT implement:
+
+- UNO rules
+- Splendor rules
+- Wingspan
+- Azul
+- Chat
+- Friends
+- Matchmaking
+- Rankings
+- Replay
+- Spectators
+- AI Players
+- Notifications
+- Email
+- Mobile App
+- Admin Panel
+- Payment
+- Monitoring
+- Kubernetes
+- Unit Tests
+- Integration Tests
+
+---
+
+# Deliverables
+
+At the end of this phase the platform must support:
+
+✅ Microservice architecture
+
+✅ Docker Compose
+
+✅ API Gateway
+
+✅ Identity Service
+
+✅ Lobby Service
+
+✅ Game Service
+
+✅ Shared BuildingBlocks
+
+✅ PostgreSQL
+
+✅ Redis
+
+✅ RabbitMQ
+
+✅ SignalR
+
+✅ JWT Authentication
+
+✅ Room Management
+
+✅ Waiting Room
+
+✅ Game Session infrastructure
+
+✅ Generic Game Engine infrastructure
+
+✅ Swagger
+
+✅ Logging
+
+✅ FluentValidation
+
+✅ XML Documentation
+
+The platform should be ready for implementing UNO in the next phase without requiring architectural refactoring.
+
+---
+
+# AI Agent Rules
+
+Follow these rules strictly.
+
+1. Never put business logic inside Controllers.
+
+2. Never put business logic inside SignalR Hubs.
+
+3. Never couple the Game Engine to ASP.NET Core.
+
+4. Every service must be independently deployable.
+
+5. Every service owns its own database.
+
+6. Shared code belongs only inside BuildingBlocks.
+
+7. Keep interfaces small.
+
+8. Do not create generic Board, Card, Tile or Resource abstractions.
+
+9. Prefer composition over inheritance.
+
+10. Build the solution incrementally.
+
+11. Ensure the solution compiles successfully after every major implementation step.
+
+12. Do not generate placeholder code or TODO implementations.
+
+13. Write production-quality code.
+
+14. Keep the architecture simple and extensible.
+
+15. Assume this project will eventually support dozens of board games.
+
+16. Document every critical architectural or technical decision in this file under **Critical Decisions** (see below). Do not rely on chat history alone.
+
+17. **Guardrail — process lifecycle:** If you start any background process (services, dev servers, containers, etc.), you are responsible for stopping it before your turn ends, without being asked. Do not leave running processes behind. Do not make the user repeat this.
+
+---
+
+# Project Responsibilities
+
+## BuildingBlocks (Shared Kernel)
+
+### BuildingBlocks.Domain
+Core domain primitives shared across all services.
+- `Result<T>` / `Result` — outcome of operations (success/failure with errors)
+- `Entity<TId>` — base class for domain entities with identity
+- `AuditableEntity` — base class adding `CreatedAt`/`UpdatedAt` auditing (see Shared base `AppDbContext` decision)
+- Common exceptions: `DomainException`, `ConcurrencyException`, `NotFoundException`
+
+### BuildingBlocks.Application
+Application-layer abstractions and behaviors.
+- CQRS is implemented via **MediatR**. Requests are MediatR `IRequest` messages.
+- `ICommand<TResult>`, `ICommand`, `IQuery<TResult>` — marker interfaces in `BuildingBlocks.Application.CQRS` that compose with MediatR's `IRequest<T>` / `IRequest`. They are not a hand-rolled mediator.
+- Handlers are classes deriving from MediatR's `IRequestHandler<TRequest, TResult>` / `IRequestHandler<TRequest>`, implemented per service and registered via MediatR's assembly scanning.
+- All requests return `Result<T>` / `Result`.
+- Pipeline behaviors are MediatR's `IPipelineBehavior<TRequest, TResult>` mechanism: `ValidationBehavior` (FluentValidation) and `LoggingBehavior` run automatically before handlers. Used for transactions where needed.
+- `IUnitOfWork` — transaction boundary abstraction, implemented as a thin `SaveChangesAsync` wrapper over the service's `XxxDbContext` (see Critical Decisions).
+- AutoMapper — object mapping via AutoMapper (see AutoMapper decision), used in handlers to map between entities and DTOs. Profiles are auto-discovered via `AddAutoMapper(assemblies)`.
+- FluentValidation integration: `IValidator<T>`
+
+### BuildingBlocks.Infrastructure
+Reusable infrastructure implementations.
+- `EfCoreUnitOfWork` — EF Core implementation of `IUnitOfWork`
+- `Outbox` pattern — `IOutbox`, `OutboxMessage`, background processor for reliable integration events
+- `RedisCacheService` — `IDistributedCache` wrapper with typed methods
+- `RabbitMqPublisher` — `IIntegrationEventPublisher` for RabbitMQ
+- `JwtTokenService` — JWT creation/validation
+- `CurrentUserService` — `ICurrentUser` for accessing authenticated user context
+- Serilog configuration helpers
+- Health checks for PostgreSQL, Redis, RabbitMQ
+- EF Core conventions: snake_case, soft delete, auditing interceptors
+
+### BuildingBlocks.Contracts
+Shared DTOs and integration event definitions (no logic).
+- Integration events: `UserRegistered`, `RoomCreated`, `RoomClosed`, `PlayerJoinedRoom`, `PlayerLeftRoom`, `GameStarted`, `GameFinished`
+- Common DTOs: `PagedResult<T>`, `ErrorResponse` (RFC7807), `ApiResponse<T>`
+- SignalR contract interfaces: `IGameHubClient`, `ILobbyHubClient` (for type-safe client calls)
+
+---
+
+## Gateway
+
+### Gateway (API Gateway / Reverse Proxy)
+- **YARP** reverse proxy routing requests to downstream services
+- Routes:
+  - `/api/identity/**` → Identity.Api
+  - `/api/lobby/**` → Lobby.Api
+  - `/api/game/**` → Game.Api
+  - `/hubs/**` → Game.Api (SignalR)
+- Forwards `Authorization` header to downstream services
+- Rate limiting (optional, via YARP)
+- Request/response logging
+- No business logic, no database
+
+---
+
+## Identity Service
+
+### Identity.Domain
+- `User` entity: `Id`, `Email`, `PasswordHash`, `DisplayName`, `CreatedAt`, `LastLoginAt`, `IsActive`
+- `RefreshToken` entity: `Token`, `ExpiresAt`, `RevokedAt`, `ReplacedByToken`
+
+### Identity.Application
+- Commands: `RegisterCommand`, `LoginCommand`, `RefreshTokenCommand`, `LogoutCommand`, `ChangePasswordCommand`, `UpdateProfileCommand`
+- Queries: `GetCurrentUserQuery`, `GetUserByIdQuery`
+- Validators for all commands/queries
+- Handlers orchestrate the domain, return `Result<T>`
+- JWT claims construction
+
+### Identity.Infrastructure
+- EF Core `IdentityDbContext` with `User` and `RefreshToken` entities
+- Direct DbContext (`IdentityDbContext`) access for all data operations
+- `PasswordHasher` (BCrypt/Argon2)
+- `JwtTokenService` implementation (signing, validation, refresh token storage)
+- PostgreSQL migrations
+- Outbox publisher for `UserRegistered` integration event
+
+### Identity.Api
+- REST endpoints:
+  - `POST /api/identity/register`
+  - `POST /api/identity/login`
+  - `POST /api/identity/refresh`
+  - `POST /api/identity/logout`
+  - `GET /api/identity/me`
+  - `PUT /api/identity/me`
+  - `POST /api/identity/change-password`
+- Global exception middleware → RFC7807 ProblemDetails
+- Swagger/OpenAPI with XML docs
+- JWT authentication scheme
+
+---
+
+## Lobby Service
+
+### Lobby.Domain
+- `Room` entity: `Id`, `Name`, `GameType`, `MaxPlayers`, `IsPrivate`, `Status` (Waiting/Started/Closed), `HostId`, `CreatedAt`
+- `RoomPlayer` entity: `Id`, `RoomId`, `UserId`, `DisplayName`, `IsReady`, `JoinedAt`, `ConnectionId` (SignalR)
+- `RoomSettings` entity: game-specific settings (serialized JSON)
+- Room rules: max players, host transfer logic, ready state validation
+
+### Lobby.Application
+- Commands: `CreateRoomCommand`, `JoinRoomCommand`, `LeaveRoomCommand`, `SetReadyCommand`, `KickPlayerCommand`, `TransferHostCommand`, `StartGameCommand`, `CloseRoomCommand`
+- Queries: `GetRoomQuery`, `GetRoomListQuery`, `GetMyRoomsQuery`
+- Validators for all commands/queries
+- Handlers enforce lobby rules
+- Publishes integration events via outbox: `RoomCreated`, `PlayerJoinedRoom`, `PlayerLeftRoom`, `GameStarted`, `RoomClosed`
+
+### Lobby.Infrastructure
+- EF Core `LobbyDbContext` with `Room`, `RoomPlayer` entities
+- Redis cache for active room list (fast reads)
+- SignalR `LobbyHub` — real-time room updates (joined, left, ready, host changed, closed)
+- PostgreSQL migrations
+- Outbox processor
+
+### Lobby.Api
+- REST endpoints:
+  - `POST /api/lobby/rooms`
+  - `GET /api/lobby/rooms`
+  - `GET /api/lobby/rooms/{id}`
+  - `POST /api/lobby/rooms/{id}/join`
+  - `POST /api/lobby/rooms/{id}/leave`
+  - `POST /api/lobby/rooms/{id}/ready`
+  - `POST /api/lobby/rooms/{id}/unready`
+  - `POST /api/lobby/rooms/{id}/kick/{playerId}`
+  - `POST /api/lobby/rooms/{id}/transfer-host/{playerId}`
+  - `POST /api/lobby/rooms/{id}/start`
+  - `POST /api/lobby/rooms/{id}/close`
+- SignalR hub endpoint: `/hubs/lobby`
+- Swagger/OpenAPI with XML docs
+- JWT authentication, authorization policies
+
+---
+
+## Game Service
+
+### Game.Domain
+- `GameSession` entity: `Id`, `RoomId`, `GameType`, `Status` (Active/Paused/Finished), `CurrentState` (serialized), `CreatedAt`, `StartedAt`, `FinishedAt`
+- `GamePlayer` entity: `Id`, `GameSessionId`, `UserId`, `DisplayName`, `Position`, `IsConnected`
+- `GameAction` — player action data: `PlayerId`, `ActionType`, `Payload` (JSON), `Timestamp`, `SequenceNumber`
+- `IGameEngine` — interface to GameEngine.Core (LoadGame, CreateGame, ProcessAction, GetState)
+
+### Game.Application
+- Commands: `CreateGameSessionCommand`, `ProcessGameActionCommand`, `ReconnectPlayerCommand`, `PauseGameCommand`, `ResumeGameCommand`
+- Queries: `GetGameSessionQuery`, `GetGameStateQuery`, `GetPlayerGameSessionsQuery`
+- Validators
+- Handlers orchestrate: load game from engine, process action via engine, persist state, publish events
+- Calls `IGameEngine` (GameEngine.Core) for all game logic
+
+### Game.Infrastructure
+- EF Core `GameDbContext` with `GameSession`, `GamePlayer`, `GameAction` entities
+- Redis for active game session state (low-latency reads/writes)
+- SignalR `GameHub` — real-time game updates (state changes, player actions, connection status)
+- `IGame` implementations registered via DI (see Critical Decisions)
+- PostgreSQL migrations
+- Outbox processor for `GameStarted`, `GameFinished` integration events
+
+### Game.Api
+- REST endpoints:
+  - `POST /api/game/sessions` (internal, called by Lobby when starting game)
+  - `GET /api/game/sessions/{id}`
+  - `GET /api/game/sessions/{id}/state`
+  - `POST /api/game/sessions/{id}/actions`
+  - `POST /api/game/sessions/{id}/reconnect`
+  - `POST /api/game/sessions/{id}/pause`
+  - `POST /api/game/sessions/{id}/resume`
+- SignalR hub endpoint: `/hubs/game`
+- Swagger/OpenAPI with XML docs
+- JWT authentication
+
+---
+
+## Game Engine
+
+### GameEngine.Core
+**Pure C# library — zero dependencies on ASP.NET Core, EF Core, PostgreSQL, Redis, RabbitMQ, SignalR.**
+
+- `IGame` interface:
+  - `CreateGame(GameOptions options) : GameState`
+  - `ProcessAction(GameState state, GameAction action) : GameResult`
+  - `GetValidActions(GameState state, PlayerId playerId) : GameAction[]`
+  - `IsGameOver(GameState state) : bool`
+  - `GetWinner(GameState state) : PlayerId?`
+- `IGame` implementations registered via DI (see Critical Decisions)
+- `GameOptions` — game-type-specific configuration (number of players, variants, etc.)
+- `GameState` — serializable game state (JSON-serializable, no circular refs)
+- `GameAction` — player action with type and payload
+- `GameResult` — `{ NewState, Events[], IsValid, Error? }`
+- `GameEvent` — things that happened during action processing (for UI/notifications)
+- Base classes: `GameBase`, `TurnBasedGame`, `RealTimeGame` (optional helpers)
+
+---
+
+## Games
+
+### UNO
+- Implements `IGame` from GameEngine.Core
+- Contains ONLY UNO rules: deck (108 cards), discard pile, player hands, actions (play card, draw card, call UNO, challenge Wild Draw 4)
+- No HTTP, no SignalR, no EF Core, no database
+- Registered in DI as an `IGame` implementation (see Critical Decisions); ready for Phase 2 implementation
+
+---
+
+# Critical Decisions
+
+Record significant choices here so they persist across sessions and agents.
+
+Format for each entry:
+
+- **Date** — short title
+- **Context** — what problem or choice prompted the decision
+- **Decision** — what was chosen
+- **Rationale** — why, and what alternatives were rejected (if any)
+
+<!-- Add new decisions below this line -->
+
+- **2026-07-03** — Critical decisions live in AGENTS.md
+  - **Context:** Architectural and technical choices need to survive beyond a single chat session.
+  - **Decision:** Every critical decision must be recorded in the **Critical Decisions** section of `AGENTS.md`.
+  - **Rationale:** Keeps the spec as the single source of truth for humans and AI agents working on the project.
+
+- **2026-07-03** — Frontend: React + Vite
+  - **Context:** Need a frontend technology for the board game platform.
+  - **Decision:** React with Vite as the build tool.
+  - **Rationale:** Fast dev server, modern tooling, strong ecosystem for real-time UI with SignalR.
+
+- **2026-07-04** — No DDD, simplified domain model
+  - **Context:** AGENTS.md originally specified full DDD (aggregates, value objects, domain events). For Phase 1 the team preferred a leaner approach.
+  - **Decision:** Drop DDD constructs. Entities are plain POCOs inheriting a single `Entity` / `AuditableEntity` base. No aggregates, value objects, or domain events.
+  - **Rationale:** Faster to build, less ceremony, sufficient for the platform foundation. DDD patterns can be introduced per-service later if a domain genuinely needs them.
+
+- **2026-07-04** — No Repository pattern; direct DbContext access
+  - **Context:** AGENTS.md originally specified repository interfaces in every service's Domain layer.
+  - **Decision:** Services access the database directly through their `XxxDbContext` (registered via DI). No `IRepository<T>` abstractions.
+  - **Rationale:** EF Core already provides the Unit-of-Work + repository abstraction (`DbContext` + `DbSet`). A custom repository layer would duplicate it without adding value at this stage.
+
+- **2026-07-04** — CQRS via MediatR
+  - **Context:** Need a clean separation between commands (writes) and queries (reads).
+  - **Decision:** Use **MediatR** as the in-process mediator. Marker interfaces `ICommand<T>`, `ICommand`, `IQuery<T>` live in `BuildingBlocks.Application.CQRS`. All requests return `Result<T>` / `Result`. Pipeline behaviors `ValidationBehavior` and `LoggingBehavior` run automatically.
+  - **Rationale:** Industry standard, minimal boilerplate, excellent fit for Clean Architecture handlers. Chosen over hand-rolled dispatcher and over full event-sourcing CQRS.
+
+- **2026-07-04** — AutoMapper for object mapping
+  - **Context:** Handlers need to map between entities and DTOs.
+  - **Decision:** Use **AutoMapper** with profiles per service. Profiles are auto-discovered via `AddAutoMapper(assemblies)` in `AddAppInfrastructure`.
+  - **Rationale:** Chosen over Mapster (team familiarity) and manual mapping (too much boilerplate across many handlers).
+
+- **2026-07-04** — Shared base `AppDbContext` in BuildingBlocks
+  - **Context:** Soft-delete, auditing, and query filters are needed identically across all services.
+  - **Decision:** `BuildingBlocks.Infrastructure.Persistence.AppDbContext` is an abstract base DbContext. Each service's `XxxDbContext` inherits it. Auditing (`CreatedAt`/`UpdatedAt`) and soft-delete (`IsDeleted`/`DeletedAt` + global query filter) are implemented once in the base.
+  - **Rationale:** Single source of truth for cross-cutting persistence concerns, no duplication across Identity/Lobby/Game. Alternatives (interceptors only, or per-service duplication) were rejected as more error-prone.
+
+- **2026-07-04** — Soft delete is mandatory
+  - **Context:** Records (users, rooms, game sessions) must be recoverable / retained for audit.
+  - **Decision:** All entities inheriting `AuditableEntity` are soft-deleted. `DbContext.SaveChangesAsync` intercepts `EntityState.Deleted` and converts it to an update that sets `IsDeleted = true` and `DeletedAt = now`. A global EF query filter automatically excludes deleted rows from queries.
+  - **Rationale:** Enforces an auditable, non-destructive data model platform-wide without each service reimplementing it.
+
+- **2026-09-01** — `IUnitOfWork` kept as a thin `SaveChangesAsync` wrapper
+  - **Context:** With the decision to drop the repository pattern, the question arose whether `IUnitOfWork` / `EfCoreUnitOfWork` should remain in the codebase.
+  - **Decision:** Keep `IUnitOfWork` as a thin transaction-boundary abstraction implemented by `EfCoreUnitOfWork`, which simply forwards to `XxxDbContext.SaveChangesAsync`. It is not a repository wrapper or persistence facade.
+  - **Rationale:** Provides a stable, minimal transaction boundary for handlers while avoiding the redundant repository layer the "No Repository pattern" decision removed. Dropped the more elaborate transaction-manager designs as unnecessary for Phase 1.
+
+- **2026-09-01** — `IGame` implementations registered via DI, no plugin loading yet
+  - **Context:** The original spec described a `GameEngineFactory` that loads game assemblies (Splendor, etc.) from `Games/` plugins at runtime.
+  - **Decision:** For Phase 1, defer runtime `AssemblyLoadContext` plugin loading. `IGame` implementations are registered directly via the DI container, with a single `IGame` interface used to model games.
+  - **Rationale:** Runtime plugin loading adds complexity (hot-swap, sandboxing, versioning) with no concrete need until there are multiple games. DI registration is simpler and sufficient now; plugin loading can be introduced later when a real requirement emerges.
+
+- **2026-09-01** — Consistency pass reconciling spec with Critical Decisions
+  - **Context:** The original spec sections and the Critical Decisions log had diverged, leaving contradictions for any agent reading top to bottom.
+  - **Decision:** Reconcile the document for self-consistency by resolving five contradictions:
+    1. Removed `ValueObject`, `DomainEvent`, `IDomainEventDispatcher`, and all repository interfaces from `BuildingBlocks.Domain`, `Identity.Domain`, `Lobby.Domain`, and `Game.Domain` (No DDD + No Repository pattern decisions).
+    2. Rewrote `BuildingBlocks.Application` to reflect MediatR: `ICommand<T>`, `ICommand`, `IQuery<T>` are marker interfaces composing with `IRequest`/`IRequestHandler`, and pipeline behaviors are MediatR's `IPipelineBehavior` mechanism (ValidationBehavior, LoggingBehavior).
+    3. Updated the mapping reference to simply say AutoMapper (registered via `AddAutoMapper`), removing the Mapster/AutoMapper wrapper framing.
+    4. Explicitly decided that `IUnitOfWork` / `EfCoreUnitOfWork` is kept as a thin `SaveChangesAsync` wrapper, documented in both the BuildingBlocks sections and this decisions log.
+    5. Replaced `GameEngineFactory` runtime assembly loading with DI-based registration of `IGame` implementations, with a new decision deferring plugin loading.
+  - **Rationale:** Ensures the document is internally consistent and actionable for any agent or developer reading it in order. No scope, stack, or service boundary changes were made.
+
+- **2026-09-05** — First game implementation: UNO
+  - **Context:** Need to choose the first game to implement in Phase 2. The original spec mentioned Splendor, but UNO was chosen instead.
+  - **Decision:** Implement UNO (base game, no expansions) as the first game instead of Splendor.
+  - **Rationale:** UNO has simpler rules (no complex card interactions like Splendor's nobles/tokens), well-known mechanics, and is easier to validate the platform's game engine infrastructure. The turn-based structure maps cleanly to the `IGame` interface. Splendor will follow as the second game.
+
+- **2026-09-05** — UNO `Card` is a readonly struct; display names persist in `GameState.Data`
+  - **Context:** During the UNO implementation, `Card` was modeled as a `readonly record struct`. Code used `(Card?)null` for a nullable card, and attempted to access `topCardBeforeWild!.Color`. The `!` null-forgiving operator suppresses nullable *warnings* but does NOT unwrap `Nullable<T>` for a struct, producing `CS1061: 'Card?' does not contain a definition for 'Color'`. Separately, `UnoGameState.PlayerNames`/`PlayerIds` are `[JsonIgnore]` (never serialized), so the display-name map was silently lost after the first action.
+  - **Decision:** (1) For nullable struct members, access via `.Value` (or the null-checked value) instead of `!`. (2) `PlayerNames` is persisted beside the serialized `UnoState` as the `PlayerNames` key in `GameState.Data`; `ProcessAction` rehydrates it into `UnoGameState` before processing. `PlayerIds` is always re-derived from `state.Players`.
+  - **Rationale:** `.Value` on `Nullable<T>` is the only correct way to access members of a nullable struct; `!` only silences analyzer warnings. Persisting names in `GameState.Data` keeps display names accurate across actions while keeping `UnoGameState`'s runtime-only dictionaries unserialized. Avoided serializing `PlayerNames` inside `UnoState` itself to keep the persisted state free of private user-id → display-name mappings.
+
+- **2026-09-06** — Explicitly track new child entities on DB-loaded tracked principals
+  - **Context:** `POST /api/lobby/rooms/{id}/join` failed with `DbUpdateConcurrencyException` ("expected to affect 1 row(s), but actually affected 0"). The new `RoomPlayer` was being saved as an `UPDATE ... WHERE id=@newGuid` (0 rows) instead of an `INSERT`; `[JOINDIAG]` tracing showed EF had tracked it as `EntityState.Modified` right after `Room.AddPlayer(...)` added it to the private backing-field collection `_players` (`IReadOnlyList<RoomPlayer> Players => _players;`) of a Room that had been loaded from the DB with `.Include(r => r.Players)`. The same `AddPlayer` path during `Room.Create` inserts correctly (the Room there is not yet tracked), so the bug only appears when mutating the collection of a **tracked, DB-materialized** principal.
+  - **Decision:** `Room.AddPlayer` now returns the created `RoomPlayer`, and `JoinRoomCommandHandler` explicitly registers it with `_dbContext.RoomPlayers.Add(membership)` before `SaveChangesAsync`. `Room.Create` continues to ignore the return value.
+  - **Rationale:** Forceful, explicit `DbContext.Add` guarantees `EntityState.Added` regardless of what EF's relationship fixup inferred, making the intent unambiguous and immune to EF version behavior changes. Do not rely on collection-fixup alone to infer `Added` for new children of DB-loaded tracked principals; register entities explicitly when their lifecycle transitions from "new" to "persisted".
+
+- **2026-09-06** — `GameState.Data` string values become `JsonElement` after a round-trip
+  - **Context:** After creating and starting a UNO session, the first player action (`DrawCard`) failed with `ConflictException "Invalid game state: missing UNO state"`. The `game_sessions.current_state_json` row had a valid `Data.UnoState` JSON string. An isolated System.Text.Json test proved the cause: `GameState.Data` is a `Dictionary<string, object?>`; on `Deserialize<GameState>`, a value that is a JSON string is materialized as a `JsonElement` with `ValueKind=String`, NOT a CLR `string`. So the original checks (`state.Data.TryGetValue("UnoState", out var v) && v is string`) always failed after any persist/load cycle.
+  - **Decision:** Added `GameState.TryGetString(string key, out string? value)` to `GameEngine.Core`, which accepts both a CLR `string` and a `JsonElement` (`GetString()` for string-kind elements, `GetRawText()` otherwise). `UNOGame` now reads `UnoState` and `PlayerNames` exclusively via `TryGetString`, and re-canonicalizes `PlayerNames` on write. Verified with a scratch harness: `CreateGame → ToJson → FromJson → ProcessAction(DrawCard)` succeeds repeatedly (including on the new state after an action).
+  - **Rationale:** The engine model must own the serialization semantics of its own `Data` payloads. A custom `JsonConverter` or typed properties for every game payload would be over-engineering; one tolerant helper fixes any game that stores JSON strings in `Data`. Keeps JSON-string storage (per the 2026-09-05 decision) instead of embedding raw objects, which would also deserialize back as `JsonElement`.
+
+- **2026-09-06** — `POST /api/game/sessions/{id}/actions` returns a `GameState`, not a `GameResult`
+  - **Context:** After the missing-UNO-state fix made actions succeed, the frontend crashed with `Cannot read properties of undefined (reading 'length')`. `GameController.Action` returns `Ok(result.Value)` where `result.Value` is `GameState` (the handler returns `Result<GameState>`), but the frontend typed the response as `GameResult` (`{ newState, events, gameEnded }`) and called `result.events.length`, which was undefined.
+  - **Decision:** The action endpoint's response contract is a full `GameState` — the updated state is the response body itself, events are delivered via SignalR, and `isOver` is the game-end signal. Frontend: `gameApi.processAction` is typed `GameState`, the mutation's `onSuccess` does `setState(state)` and invalidates session queries when `state.isOver`. Removed the dead `GameResult` interface.
+  - **Rationale:** Single canonical state shape across `getState`, `actions`, and SignalR broadcasts keeps the frontend mapping trivial and avoids wrapper DTOs. Rejected introducing a `GameResult`-shaped response on the backend because the broadcast already delivers the same state and events to the group.
+
+- **2026-09-06** — Turn timers: `NextActionDeadlineUtc` + service-side `TurnTimeoutService`
+  - **Context:** Need per-game turn timers with time banking, overshoot penalties, auto-skip, and AFK kick/lose. The Game Engine must stay pure (no HTTP/SignalR/EF/Redis), so the mechanism that *fires* a timeout must live in the Game Service.
+  - **Decision:** `GameState.NextActionDeadlineUtc` (`DateTime?`) is a game-agnostic root property set by the engine whenever a turn starts. UNO tracks per-game config (`Timer` key in settings: `BaseTurnSeconds`/`MaxBankSeconds`/`MaxOverrunSeconds`/`MaxAfkTurns`, defaults 30/120/15/3) and per-player `UnoPlayerTimer` (bank, deferred penalty, consecutive timeouts) inside `UnoState`. On a finished turn the engine banks unused time (capped at the bank max), charges overruns against the bank first then a capped deferred penalty, and reports the next deadline. A new `TurnTimeout` action (rejected unless the deadline actually passed) charges the standard overrun, skips the turn, counts a consecutive timeout, and at `MaxAfkTurns` eliminates the player (2 players → game over with the survivor winning; >2 → removed, game continues; `AdvancePlayer` skips eliminated seats). The Game service hosts `TurnTimeoutService` (`Game.Infrastructure`, polled every 1s), which dispatches `TurnTimeout` for expired deadlines through the same engine/persist/cache/broadcast path as player actions.
+  - **Rationale:** Keeps the engine pure while centralizing time enforcement in one place; the engine remains the single source of truth for *what* a timeout does per game. Verified with a scratch harness (create/round-trip/deadline/bank/penalty/skip/elimination) — 20/20 checks passed.
+
+- **2026-09-06** — Single-tab enforcement via `SessionTakenOver`
+  - **Context:** A player opening the same game in a second tab created two SignalR connections for one seat; both tabs would send actions and every client (including the orphaned tab) kept receiving broadcasts.
+  - **Decision:** `ReconnectPlayerCommandHandler` captures the seat's previous `ConnectionId` before `SetConnection`, then publishes a `GameChangeType.PlayerTakenOver` notification carrying it. `GameRealTimeNotifier` sends the new `IGameHubClient.SessionTakenOver(gameSessionId, playerId)` to only that superseded connection. The frontend subscribes, marks the store `takenOver`, stops the hub (disabling auto-reconnect so the old tab can't re-join and kick the new one), and navigates to `/lobby`.
+  - **Rationale:** Backend stays stateless about tabs — one new connection replaces the prior one and the platform informs the loser. Rejected a Redis connection map (no cross-instance need yet); note this relies on a single Game.Api instance, so a Redis-backed seat map should be added if the Game service is ever scaled out.
+
+- **2026-09-06** — Lobby abandoned-room cleanup
+  - **Context:** Rooms whose browser tab was closed without leaving (or whose last player quit) would sit in `Waiting` forever; `Closed` rooms accumulated.
+  - **Decision:** `AbandonedRoomCleanupService` (`Lobby.Infrastructure`, config `Lobby:RoomCleanup`) closes `Waiting` rooms older than `AbandonedRoomMinutes` (default 60), broadcasting `RoomClosed` like a normal close, and soft-deletes `Closed` rooms older than `ClosedRoomRetentionMinutes` (default 1440). Frontend `RoomPage` leaves the hub and redirects to `/lobby` when it sees `status == 'Closed'`.
+  - **Rationale:** Age-based because the `RoomPlayer.ConnectionId` is not reliably cleared on disconnect (LobbyHub has no `OnDisconnectedAsync`). Keeps the Lobby ignorant of game rules while still preventing dead rooms from leaking indefinitely.
+
+- **2026-09-06** — `Room.GameSessionId` persisted; StartGame response carries it
+  - **Context:** Bug: after clicking Start, the room "disappeared". The room list only shows `Waiting` rooms, and the only carrier of the new game session id was the `GameStarted` SignalR broadcast. If a client missed that event (drop, race, reload), `currentGameSessionId` stayed null, the redirect to `/game/{id}` never fired, and the host — who has no manual "Go to Game" control — was stranded on a `Started` room that no longer appears anywhere.
+  - **Decision:** (1) `Room` stores `GameSessionId` (set via `Room.Start(gameSessionId)`); EF migration `AddRoomGameSessionId` adds `rooms.game_session_id`. (2) `LobbyRoomDto.GameSessionId` is populated automatically by AutoMapper on every read path (`GetRoom`, `GetRoomList`, `GetMyRooms`, StartGame response). (3) Frontend: the StartGame REST response seeds `currentGameSessionId` immediately (host navigates without waiting for SignalR); `RoomPage` also seeds it from a fetched `Started` room (reload/rejoin fallback); a "Go to Game" button is shown to *all* players (was guest-only) when the room is `Started`.
+  - **Rationale:** The SignalR broadcast alone is a lossy single point of failure for the lobby→game transition. Persisting the session id on the room makes every recovery path (REST response, room refetch, reload) deterministic while keeping the Lobby unaware of game rules (it stores an opaque id). The signal remains for real-time push, not as the only transport.
+
+- **2026-09-06** — Seat takeover must be idempotent for the same connection
+  - **Context:** Bug: when the host started a game, guests were kicked back to `/lobby` moments after the game page rendered, and the Started room had vanished from the lobby list (the list only returns `Waiting` rooms), leaving no way back. Cause: React `StrictMode` double-invokes `GamePage`'s mount effect, so `JoinSession` was invoked **twice on the same SignalR connection**. `ReconnectPlayerCommandHandler` treated *any* stored `seat.ConnectionId` as a superseded tab — including the very same connection id — so the second `ReconnectPlayer` published `PlayerTakenOver(connectionId=X)` **to connection X itself**. The tab received its own `SessionTakenOver`, set `takenOver`, and navigated to `/lobby`. The host survived only by timing luck (the frontend handler ignores the event while `currentSession` is still null).
+  - **Decision:** (1) Backend: `ReconnectPlayerCommandHandler` only supersedes when the stored connection id **differs** from the incoming one (`existing != request.ConnectionId`); a same-connection re-join is a no-op for takeover. (2) Frontend: `gameHub.joinSession` is idempotent — it tracks the `joinedConnectionId` per session and skips the `JoinSession` invoke when the current connection already joined that session (StrictMode double-mount / effect re-runs). After a SignalR auto-reconnect the connection id changes, so a later `joinSession` correctly re-invokes.
+  - **Rationale:** Hub method invocations are not guaranteed to be exactly-once from the client's perspective (double-mounted effects, retries); takeover semantics must therefore key on connection *identity*, not mere existence of a stored connection id. Rejected disabling React StrictMode — it exposes real idempotency gaps like this one.

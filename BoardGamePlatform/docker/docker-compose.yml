@@ -1,0 +1,124 @@
+name: boardgameplatform
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: boardgame-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: boardgame-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: boardgame-rabbitmq
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  identity-api:
+    build:
+      context: ../backend
+      dockerfile: src/Services/Identity/Identity.Api/Dockerfile
+    container_name: boardgame-identity
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=identitydb;Username=postgres;Password=postgres
+      Redis__Configuration: redis:6379
+      RabbitMQ__Host: rabbitmq
+    ports:
+      - "5201:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  lobby-api:
+    build:
+      context: ../backend
+      dockerfile: src/Services/Lobby/Lobby.Api/Dockerfile
+    container_name: boardgame-lobby
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=lobbydb;Username=postgres;Password=postgres
+      Redis__Configuration: redis:6379
+      RabbitMQ__Host: rabbitmq
+      Services__Game__BaseUrl: http://game-api
+    ports:
+      - "5202:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  game-api:
+    build:
+      context: ../backend
+      dockerfile: src/Services/Game/Game.Api/Dockerfile
+    container_name: boardgame-game
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=gamedb;Username=postgres;Password=postgres
+      Redis__Configuration: redis:6379
+      RabbitMQ__Host: rabbitmq
+    ports:
+      - "5203:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  gateway:
+    build:
+      context: ../backend
+      dockerfile: src/Gateway/Gateway/Dockerfile
+    container_name: boardgame-gateway
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ReverseProxy__Clusters__identity-cluster__Destinations__d1__Address: http://identity-api
+      ReverseProxy__Clusters__lobby-cluster__Destinations__d1__Address: http://lobby-api
+      ReverseProxy__Clusters__game-cluster__Destinations__d1__Address: http://game-api
+    ports:
+      - "5200:80"
+    depends_on:
+      - identity-api
+      - lobby-api
+      - game-api
+
+volumes:
+  postgres-data:
