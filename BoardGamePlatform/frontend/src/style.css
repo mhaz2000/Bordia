@@ -15,3 +15,33 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Floating cards animation for decorative UNO hero art */
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--rot, -8deg));
+  }
+  50% {
+    transform: translateY(-10px) rotate(var(--rot, -8deg));
+  }
+}
+
+.animate-floaty {
+  animation: floaty 4s ease-in-out infinite;
+}
+
+@keyframes floaty-delayed {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--rot, 6deg));
+  }
+  50% {
+    transform: translateY(-14px) rotate(var(--rot, 6deg));
+  }
+}
+
+.animate-floaty-delayed {
+  animation: floaty-delayed 5s ease-in-out infinite;
+  animation-delay: 1.2s;
+}

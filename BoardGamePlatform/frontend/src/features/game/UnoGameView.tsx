@@ -11,10 +11,9 @@ import {
   isPlayable,
   isWild,
   parseUnoState,
-  valueGlyph,
-  WILD_GRADIENT,
   type UnoCard,
 } from './uno'
+import { UnoCardVisual, UnoCardBackVisual } from '@/shared/components/UnoCardVisual'
 
 interface UnoGameViewProps {
   state: GameState
@@ -196,11 +195,11 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
           >
             <div className="relative">
               {/* stacked backs */}
-              <CardBack className="absolute inset-0 translate-x-1.5 translate-y-1.5 rotate-3 opacity-60" size="pile" />
-              <CardBack className="absolute inset-0 translate-x-0.5 translate-y-0.5 -rotate-2 opacity-80" size="pile" />
-              <CardBack
+              <UnoCardBackVisual className="absolute inset-0 translate-x-1.5 translate-y-1.5 rotate-3 opacity-60" size="xl" />
+              <UnoCardBackVisual className="absolute inset-0 translate-x-0.5 translate-y-0.5 -rotate-2 opacity-80" size="xl" />
+              <UnoCardBackVisual
                 className={`relative transition-transform ${canDraw ? 'group-hover:-translate-y-3 group-hover:shadow-[0_0_25px_rgba(251,191,36,0.45)]' : ''}`}
-                size="pile"
+                size="xl"
               />
             </div>
             <span className="rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] font-bold text-white tabular-nums">
@@ -222,12 +221,12 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
                   className="absolute inset-0 opacity-45"
                   style={{ transform: `rotate(${(i - 1) * 7}deg) translate(${(i - 1) * 4}px, ${(i - 1) * 3}px)` }}
                 >
-                  <CardFace card={c} size="pile" />
+                  <UnoCardVisual card={c} size="xl" />
                 </div>
               ))}
               {topCard && (
                 <div className="absolute inset-0" style={{ transform: `rotate(${discardTilt}deg)` }}>
-                  <CardFace card={topCard} size="pile" />
+                  <UnoCardVisual card={topCard} size="xl" />
                 </div>
               )}
               {uno.PendingDrawCount > 0 && (
@@ -401,7 +400,7 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
                         !isMyTurn && !state.isOver ? 'opacity-80 cursor-default' : ''
                       }`}
                     >
-                      <CardFace card={card} size="hand" />
+                      <UnoCardVisual card={card} size="lg" />
                     </button>
                   </div>
                 )
@@ -440,7 +439,7 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
       {/* Wild color picker */}
       <Modal isOpen={!!wildPick} onClose={() => setWildPick(null)} title="Choose a color">
         <div className="flex items-center gap-4 mb-4">
-          {wildPick && <CardFace card={wildPick} size="pile" />}
+          {wildPick && <UnoCardVisual card={wildPick} size="xl" />}
           <p className="text-sm text-gray-600">
             Play this wild card and pick the color to continue.
           </p>
@@ -525,95 +524,8 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
 
 /* ============================ CARD VISUALS ============================ */
 
-type CardSize = 'hand' | 'pile'
-
 function colorName(id: number): string {
   return ['Red', 'Blue', 'Green', 'Yellow', 'Wild'][id] ?? 'Red'
-}
-
-/**
- * A real UNO-style card face: colored body, white central oval with the big
- * value, and small corner glyphs.
- */
-function CardFace({ card, size }: { card: UnoCard; size: CardSize }) {
-  const wild = isWild(card)
-  const hex = CARD_HEX[card.Color] ?? CARD_HEX[0]
-  const glyph = valueGlyph(card.Value)
-  const dims = size === 'hand'
-    ? 'w-20 h-28 sm:w-24 sm:h-32'
-    : 'w-24 h-36 sm:w-28 sm:h-40'
-  const centerText = size === 'hand' ? 'text-3xl sm:text-4xl' : 'text-4xl sm:text-5xl'
-  const cornerText = size === 'hand' ? 'text-[10px] sm:text-xs' : 'text-xs sm:text-sm'
-
-  return (
-    <div
-      className={`${dims} relative select-none rounded-xl border-[3px] border-white shadow-lg overflow-hidden`}
-      style={{ background: wild ? undefined : `linear-gradient(145deg, ${hex}, ${shade(hex)})` }}
-    >
-      {wild && <div className="absolute inset-0" style={WILD_GRADIENT} />}
-      {/* sheen */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/15 to-black/10" />
-
-      {/* white central oval */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="flex h-[62%] w-[82%] -rotate-[28deg] items-center justify-center rounded-[50%] bg-white shadow-sm">
-          <div className="rotate-[28deg] text-center leading-none">
-            {wild && card.Value === 13 ? (
-              <div className="grid h-7 w-7 grid-cols-2 gap-px overflow-hidden rounded-full ring-2 ring-gray-800 sm:h-9 sm:w-9">
-                <span className="bg-red-600" /><span className="bg-blue-600" />
-                <span className="bg-yellow-400" /><span className="bg-green-600" />
-              </div>
-            ) : (
-              <span
-                className={`${centerText} font-black tracking-tighter`}
-                style={{ color: wild ? '#111827' : hex, textShadow: '0 1px 0 rgba(0,0,0,0.08)' }}
-              >
-                {glyph}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* corner glyphs */}
-      <span
-        className={`${cornerText} absolute left-1 top-0.5 font-black text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]`}
-      >
-        {wild && card.Value === 13 ? 'W' : glyph}
-      </span>
-      <span
-        className={`${cornerText} absolute bottom-0.5 right-1 rotate-180 font-black text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]`}
-      >
-        {wild && card.Value === 13 ? 'W' : glyph}
-      </span>
-    </div>
-  )
-}
-
-/** Darkens a hex color for the card body gradient. */
-function shade(hex: string): string {
-  const n = parseInt(hex.slice(1), 16)
-  const r = Math.max(0, ((n >> 16) & 255) - 60)
-  const g = Math.max(0, ((n >> 8) & 255) - 60)
-  const b = Math.max(0, (n & 255) - 60)
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
-}
-
-/** The back of a UNO card, used for the draw pile stack. */
-function CardBack({ className = '', size }: { className?: string; size: CardSize }) {
-  return (
-    <div
-      className={`${size === 'hand' ? 'w-20 h-28 sm:w-24 sm:h-32' : 'w-24 h-36 sm:w-28 sm:h-40'} relative rounded-xl border-[3px] border-white shadow-lg overflow-hidden bg-gradient-to-br from-red-500 to-red-800 ${className}`}
-    >
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="flex h-[62%] w-[82%] -rotate-[28deg] items-center justify-center rounded-[50%] bg-white">
-          <span className="rotate-[28deg] text-lg sm:text-xl font-black italic tracking-tighter text-red-600">
-            UNO
-          </span>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 /** Small card-stack icon with count for opponent seats. */
