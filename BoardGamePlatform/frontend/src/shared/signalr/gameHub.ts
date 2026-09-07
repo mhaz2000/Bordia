@@ -41,6 +41,21 @@ class GameHubClient {
 
       this.setupHandlers()
 
+      // After an automatic reconnect the connection (and its group memberships)
+      // is new: re-join the current session so broadcasts keep flowing. A new
+      // connection id also re-registers the seat connection server-side.
+      this.connection.onreconnected(async () => {
+        const sessionId = this.currentSessionId
+        if (sessionId) {
+          try {
+            this.joinedConnectionId = null
+            await this.joinSession(sessionId)
+          } catch (err) {
+            console.error('[GameHub] Rejoin after reconnect failed:', err)
+          }
+        }
+      })
+
       try {
         await this.connection.start()
         console.log('[GameHub] Connected')

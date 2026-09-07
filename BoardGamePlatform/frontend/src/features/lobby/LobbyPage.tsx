@@ -11,6 +11,7 @@ import { Modal } from '@/shared/components/Modal'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
 import { PlusIcon, LockClosedIcon, UserGroupIcon, PlayIcon } from '@heroicons/react/24/outline'
 import type { LobbyRoom } from '@/shared/api/lobby'
+import type { GameSession } from '@/shared/api/game'
 
 export function LobbyPage() {
   const navigate = useNavigate()
@@ -30,6 +31,14 @@ export function LobbyPage() {
     queryFn: gameApi.listGames,
     staleTime: 1000 * 60 * 5,
   })
+  // Active game sessions of the current user (for rejoining after a closed tab).
+  const { data: mySessions = [] } = useQuery({
+    queryKey: ['game', 'mySessions'],
+    queryFn: gameApi.mySessions,
+    refetchInterval: 15000,
+    staleTime: 5000,
+  })
+  const activeGames = mySessions.filter((s) => s.status === 'Active')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [name, setName] = useState('')
   const [gameType, setGameType] = useState('')
@@ -148,6 +157,23 @@ export function LobbyPage() {
           </div>
         )}
 
+        {/* Rejoinable active games (e.g. after accidentally closing the game tab) */}
+        {activeGames.length > 0 && (
+          <div className="mb-8 space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Your active games
+            </h2>
+            {activeGames.map((session) => (
+              <ActiveGameCard
+                key={session.id}
+                session={session}
+                currentUserId={user?.id}
+                onRejoin={() => navigate(`/game/${session.id}`)}
+              />
+            ))}
+          </div>
+        )}
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {rooms.map((room) => (
             <RoomCard key={room.id} room={room} currentUserId={user?.id} onSelect={handleJoinRoom} />
@@ -234,6 +260,40 @@ export function LobbyPage() {
           </div>
         </form>
       </Modal>
+    </div>
+  )
+}
+
+function ActiveGameCard({
+  session,
+  currentUserId,
+  onRejoin,
+}: {
+  session: GameSession
+  currentUserId?: string
+  onRejoin: () => void
+}) {
+  const opponent = session.players.find((p) => p.userId !== currentUserId)
+
+  return (
+    <div className="flex items-center justify-between rounded-xl border-2 border-blue-200 bg-blue-50 px-5 py-4 shadow-sm">
+      <div className="flex items-center gap-4">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-lg font-black text-white shadow">
+          {session.gameType.charAt(0)}
+        </div>
+        <div>
+          <p className="font-semibold text-gray-900">
+            {session.gameType} game in progress
+          </p>
+          <p className="text-sm text-gray-500">
+            vs {opponent ? opponent.displayName : 'other players'} - started{' '}
+            {session.startedAt ? new Date(session.startedAt).toLocaleTimeString() : 'recently'}
+          </p>
+        </div>
+      </div>
+      <Button variant="primary" onClick={onRejoin}>
+        Rejoin game
+      </Button>
     </div>
   )
 }

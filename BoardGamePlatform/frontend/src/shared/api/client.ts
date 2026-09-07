@@ -127,6 +127,7 @@ export const lobbyApi = {
 
 export const gameApi = {
   listGames: () => request<GameMeta[]>('/game/games'),
+  mySessions: () => request<GameSession[]>('/game/sessions/mine'),
   createSession: (data: { roomId: string }) => request<GameSession>('/game/sessions', {
     method: 'POST',
     body: JSON.stringify(data),
