@@ -31,6 +31,7 @@ export interface UnoState {
   CurrentPlayerIndex: number
   PendingDrawCount: number
   PendingDrawOffenderIndex?: number | null
+  PendingDrawTargetIndex?: number | null
   NextPlayerSkipped: boolean
   UnoCalled: boolean
   UnoPendingPlayerIndex?: number | null
@@ -38,6 +39,7 @@ export interface UnoState {
   EventLog: string[]
   TimerConfig?: UnoTurnTimerConfig
   PlayerTimers?: UnoPlayerTimer[]
+  TurnStartUtc?: string
   EliminatedPlayerIndexes?: number[]
 }
 

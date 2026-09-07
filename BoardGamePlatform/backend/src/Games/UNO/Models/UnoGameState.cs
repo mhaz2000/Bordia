@@ -65,6 +65,22 @@ public class UnoGameState
     public int? PendingDrawOffenderIndex { get; set; } = null;
 
     /// <summary>
+    /// The player position that currently owes the pending draw penalty. The debt
+    /// survives a turn skip (timeout): the debtor still owes it on their next turn
+    /// and cannot play until it is accepted. Null on legacy states, which is
+    /// treated as "the current player owes" for safety.
+    /// </summary>
+    public int? PendingDrawTargetIndex { get; set; } = null;
+
+    /// <summary>
+    /// Whether the pending draw is exactly the 4 cards of the Wild Draw Four on top
+    /// of the discard pile (and only those). A challenge is only meaningful then:
+    /// debts accumulated from earlier Draw Two rounds or other merges cannot be
+    /// challenged as a whole.
+    /// </summary>
+    public bool PendingDrawChallengeable { get; set; } = false;
+
+    /// <summary>
     /// Whether the next player is skipped.
     /// </summary>
     public bool NextPlayerSkipped { get; set; } = false;
@@ -221,12 +237,18 @@ public class UnoGameState
 
     /// <summary>
     /// Starts the clock for the current player and sets the action deadline.
+    /// The deadline is the HARD limit: the player's allowance plus the grace
+    /// window. Inside the grace window the player may still act (the countdown
+    /// shows negative time) and the overshoot is deducted from their next
+    /// allowance; the turn is force-skipped only once the hard deadline passes.
     /// </summary>
     public void SetTurnClock()
     {
         var config = TimerConfig ?? new UnoTurnTimerConfig();
         TurnStartUtc = DateTime.UtcNow;
-        NextActionDeadlineUtc = DateTime.UtcNow.AddSeconds(MaxTurnSeconds(CurrentPlayerIndex, config));
+        NextActionDeadlineUtc = DateTime.UtcNow
+            .AddSeconds(MaxTurnSeconds(CurrentPlayerIndex, config))
+            .AddSeconds(config.MaxOverrunSeconds);
     }
 
     /// <summary>

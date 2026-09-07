@@ -27,3 +27,19 @@ export function useCountdown(deadlineUtc?: string, tickMs = 250): number {
 
   return remaining
 }
+
+/**
+ * Ticks the current wall-clock time. Combine with your own deadlines when the
+ * countdown must be allowed to go negative (e.g. overtime grace windows).
+ */
+export function useNow(tickMs = 250): number {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    setNow(Date.now())
+    const timer = window.setInterval(() => setNow(Date.now()), tickMs)
+    return () => window.clearInterval(timer)
+  }, [tickMs])
+
+  return now
+}

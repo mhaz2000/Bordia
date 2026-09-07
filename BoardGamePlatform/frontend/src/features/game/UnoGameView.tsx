@@ -3,7 +3,7 @@ import { ArrowPathIcon, ClockIcon, PlayIcon, TrophyIcon } from '@heroicons/react
 import type { GameSession, GameState } from '@/shared/api/game'
 import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
-import { useCountdown } from '@/shared/hooks/useCountdown'
+import { useCountdown, useNow } from '@/shared/hooks/useCountdown'
 import {
   CARD_HEX,
   COLOR_CHOICES,
@@ -47,25 +47,31 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
   const eliminated = uno.EliminatedPlayerIndexes ?? []
   const iWasRemoved = !state.isOver && meIndex >= 0 && eliminated.includes(meIndex)
 
-  // Turn timer countdown driven by the platform deadline on the state root.
-  const remainingMs = useCountdown(state.nextActionDeadlineUtc)
+  // Turn timer: signed countdown with an overtime grace window. The state's
+  // deadline is the HARD limit (allowance + grace); the soft end is
+  // TurnStartUtc + allowance. Acting inside the grace window is allowed and
+  // the overshoot shortens the player's next allowance.
+  const now = useNow()
   const gameRemainingMs = useCountdown(state.gameEndsAtUtc)
-  const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
+  const turnStartMs = uno.TurnStartUtc ? Date.parse(uno.TurnStartUtc) : Number.NaN
   const currentTimer = (uno.PlayerTimers ?? [])[uno.CurrentPlayerIndex]
   const timerConfig = uno.TimerConfig
   const baseSeconds = timerConfig?.BaseTurnSeconds ?? 30
   const maxBankSeconds = timerConfig?.MaxBankSeconds ?? 120
-  const overrunCeiling = timerConfig?.MaxOverrunSeconds ?? 15
-  const allottedSeconds = Math.max(
-    Math.max(0, baseSeconds - overrunCeiling),
+  const graceSeconds = timerConfig?.MaxOverrunSeconds ?? 15
+  const allowanceSeconds = Math.max(
+    Math.max(0, baseSeconds - graceSeconds),
     Math.min(
       maxBankSeconds,
       baseSeconds + (currentTimer?.BankSeconds ?? 0) - (currentTimer?.DeferredPenaltySeconds ?? 0)
     )
   )
-  const timerFraction =
-    allottedSeconds > 0 ? Math.max(0, Math.min(1, remainingMs / 1000 / allottedSeconds)) : 0
-  const timerCritical = remainingSeconds <= 5
+  const softEndMs = Number.isNaN(turnStartMs) ? Number.NaN : turnStartMs + allowanceSeconds * 1000
+  const signedRemainingMs = Number.isNaN(softEndMs) ? 0 : softEndMs - now
+  const remainingSeconds = Math.max(0, Math.ceil(signedRemainingMs / 1000))
+  const overtimeSeconds = signedRemainingMs < 0 ? Math.min(graceSeconds, Math.floor(-signedRemainingMs / 1000)) : 0
+  const timerFraction = Math.max(0, Math.min(1, signedRemainingMs / 1000 / Math.max(1, allowanceSeconds)))
+  const timerCritical = signedRemainingMs <= 0
 
   // Game clock: overall time limit before the game is force-finished.
   const gameRemainingMinutes = Math.floor(gameRemainingMs / 60000)
@@ -91,23 +97,29 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
   }
 
   const handleCardClick = (card: UnoCard) => {
-    // While a Draw Two / Wild Draw Four penalty is pending, playing is forbidden.
-    if (!isMyTurn || isSending || uno.PendingDrawCount > 0 || !isPlayable(card, uno)) return
+    // While MY draw penalty is pending, playing is forbidden. (A debt belonging
+    // to another player - e.g. they were skipped - does not block me.)
+    if (!isMyTurn || isSending || iOweDraw || !isPlayable(card, uno)) return
     if (isWild(card)) setWildPick(card)
     else playCard(card)
   }
 
-  const pendingDraw = uno.PendingDrawCount > 0 && isMyTurn
+  // A pending draw debt belongs to a specific player (it survives their skipped
+  // turn). Only that player is locked out of playing; everyone else acts normal.
+  const iOweDraw =
+    uno.PendingDrawCount > 0 &&
+    (uno.PendingDrawTargetIndex == null || uno.PendingDrawTargetIndex === meIndex)
+  const pendingDraw = iOweDraw && isMyTurn
   const isWildDrawFour = !!topCard && isWild(topCard) && topCard.Value === 14
   const challengeResolved = !!uno.PendingDrawOffenderIndex
   const canChallenge = pendingDraw && isWildDrawFour && uno.PendingDrawCount === 4 && !challengeResolved
-  const canDraw = isMyTurn && uno.PendingDrawCount === 0 && !uno.DrawnThisTurn
+  const canDraw = isMyTurn && !iOweDraw && !uno.DrawnThisTurn
   // Pass appears whenever a voluntary draw has not been followed by a play.
   // Normally the backend auto-passes an unplayable drawn card, so this only
   // shows to decline a playable drawn card - but it also guarantees the player
   // can never get stuck (e.g. a backend/frontend version mismatch).
   const playableCount = pendingDraw ? 0 : myCards.filter((c) => isPlayable(c, uno)).length
-  const canPass = isMyTurn && uno.PendingDrawCount === 0 && !!uno.DrawnThisTurn
+  const canPass = isMyTurn && !iOweDraw && !!uno.DrawnThisTurn
   const canCallUno = isMyTurn && myCards.length === 1 && !uno.UnoCalled && uno.UnoPendingPlayerIndex === meIndex
 
   const currentPlayerUserId = state.players[uno.CurrentPlayerIndex]?.userId
@@ -312,7 +324,14 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
           </span>
         )}
 
-        {!state.isOver && <TimerRing seconds={remainingSeconds} fraction={timerFraction} critical={timerCritical} />}
+        {!state.isOver && (
+          <TimerRing
+            seconds={remainingSeconds}
+            overtimeSeconds={overtimeSeconds}
+            fraction={timerFraction}
+            critical={timerCritical}
+          />
+        )}
 
         <div className="flex-1" />
 
@@ -339,8 +358,11 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
               <span className="ml-1 normal-case text-emerald-600">- {playableCount} playable</span>
             )}
           </p>
-          {isMyTurn && playableCount === 0 && uno.PendingDrawCount === 0 && !state.isOver && (
+          {isMyTurn && playableCount === 0 && !iOweDraw && !state.isOver && (
             <p className="text-xs text-gray-400">{uno.DrawnThisTurn ? 'Drew a card - play it if it fits, or pass' : 'No playable card - draw from the pile'}</p>
+          )}
+          {pendingDraw && (
+            <p className="text-xs font-semibold text-rose-600">You owe {uno.PendingDrawCount} card{uno.PendingDrawCount > 1 ? 's' : ''} - accept the draw first</p>
           )}
         </div>
         <div className="overflow-x-auto pb-3 pt-10">
@@ -354,7 +376,7 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
                 const rot = (idx - mid) * 2.5
                 const arc = Math.min(Math.abs(idx - mid) * 5, 24)
                 const overlap = n <= 6 ? 14 : n <= 9 ? 30 : 42
-                const playable = uno.PendingDrawCount === 0 && isPlayable(card, uno)
+                const playable = !iOweDraw && isPlayable(card, uno)
                 return (
                   <div
                     key={`${idx}-${card.Color}-${card.Value}`}
@@ -609,12 +631,25 @@ function MiniCardStack({ count }: { count: number }) {
 
 /* ============================ STATUS WIDGETS ============================ */
 
-/** Circular countdown ring for the current turn. */
-function TimerRing({ seconds, fraction, critical }: { seconds: number; fraction: number; critical: boolean }) {
+/** Circular countdown ring for the current turn; shows overtime as negative. */
+function TimerRing({
+  seconds,
+  overtimeSeconds,
+  fraction,
+  critical,
+}: {
+  seconds: number
+  overtimeSeconds: number
+  fraction: number
+  critical: boolean
+}) {
   const R = 22
   const C = 2 * Math.PI * R
   return (
-    <div className="relative h-12 w-12 flex-shrink-0" title={`${seconds}s left this turn`}>
+    <div
+      className={`relative h-12 w-12 flex-shrink-0 ${overtimeSeconds > 0 ? 'animate-pulse' : ''}`}
+      title={overtimeSeconds > 0 ? `${overtimeSeconds}s into overtime - act now or the turn is skipped` : `${seconds}s left this turn`}
+    >
       <svg viewBox="0 0 56 56" className="h-12 w-12 -rotate-90">
         <circle cx="28" cy="28" r={R} fill="none" strokeWidth="5" className="stroke-gray-200" />
         <circle
@@ -630,8 +665,12 @@ function TimerRing({ seconds, fraction, critical }: { seconds: number; fraction:
           style={{ transition: 'stroke-dashoffset 0.25s linear' }}
         />
       </svg>
-      <span className={`absolute inset-0 flex items-center justify-center text-sm font-bold tabular-nums ${critical ? 'text-red-600' : 'text-gray-700'}`}>
-        {seconds}
+      <span
+        className={`absolute inset-0 flex items-center justify-center text-sm font-bold tabular-nums ${
+          overtimeSeconds > 0 ? 'text-red-600' : critical ? 'text-red-500' : 'text-gray-700'
+        }`}
+      >
+        {overtimeSeconds > 0 ? `-${overtimeSeconds}` : seconds}
       </span>
     </div>
   )

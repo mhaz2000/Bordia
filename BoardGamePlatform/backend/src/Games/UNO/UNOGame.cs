@@ -321,13 +321,17 @@ public class UNOGame : IGame
 
         if (topCard == null) return actions;
 
-        // Pending penalty: the player may only accept the draw or (for a Wild Draw
-        // Four) challenge it. No card plays, no voluntary draw, no pass.
-        if (unoState.PendingDrawCount > 0)
+        // Pending penalty: the debtor may only accept the draw or (for a Wild Draw
+        // Four) challenge it. No card plays, no voluntary draw, no pass. Other
+        // players act normally - the debt survives their skipped turn.
+        if (unoState.PendingDrawCount > 0
+            && (unoState.PendingDrawTargetIndex is null || unoState.PendingDrawTargetIndex == playerIndex))
         {
             actions.Add(CreateAction(UnoActionType.AcceptDraw, new AcceptDrawPayload()));
 
-            if (unoState.PendingDrawCount == 4 && !unoState.PendingDrawOffenderIndex.HasValue)
+            if (unoState.PendingDrawCount == 4
+                && unoState.PendingDrawChallengeable
+                && !unoState.PendingDrawOffenderIndex.HasValue)
             {
                 var lastCard = unoState.DiscardPile[^1];
                 if (lastCard.IsWild && lastCard.Value == CardValue.WildDrawFour)
@@ -447,6 +451,8 @@ public class UNOGame : IGame
                 break;
             case CardValue.DrawTwo:
                 state.PendingDrawCount = 2;
+                state.PendingDrawTargetIndex = state.CurrentPlayerIndex;
+                state.PendingDrawChallengeable = false;
                 state.EventLog.Add("First card is Draw Two - first player must draw 2!");
                 break;
         }
@@ -467,12 +473,19 @@ public class UNOGame : IGame
         // Classic UNO: a pending Draw Two / Wild Draw Four penalty must be drawn
         // (or a Wild Draw Four may be challenged). Playing a card is not allowed -
         // without this guard the penalty would silently transfer to the next player.
-        if (state.PendingDrawCount > 0)
+        // The debt belongs to a specific player: after a turn skip it survives, so
+        // only the debtor is locked out; everyone else keeps playing normally.
+        if (state.PendingDrawCount > 0
+            && (state.PendingDrawTargetIndex is null || state.PendingDrawTargetIndex == playerIndex))
         {
             return UnoActionResult.Failure(state.PendingDrawCount == 4
                 ? "You must accept the draw or challenge the Wild Draw Four"
                 : $"You must draw {state.PendingDrawCount} cards first");
         }
+
+        // Whether a debt that is exactly 4 is a pure Wild Draw Four (challengeable)
+        // or includes cards merged from earlier rounds (not challengeable).
+        var hadOutstandingDebt = state.PendingDrawCount > 0;
 
         // Verify card is in hand
         if (!hand.Contains(card))
@@ -556,6 +569,15 @@ public class UNOGame : IGame
         // Advance to next player
         state.AdvancePlayer(state.PlayerHands.Count);
 
+        // The draw debt belongs to whoever's turn it just became. Only a debt that
+        // is exactly the Wild Draw Four on top of the pile (no earlier merged
+        // penalties) is challengeable as a whole.
+        if (card.Value is CardValue.DrawTwo or CardValue.WildDrawFour)
+        {
+            state.PendingDrawTargetIndex = state.CurrentPlayerIndex;
+            state.PendingDrawChallengeable = card.Value == CardValue.WildDrawFour && !hadOutstandingDebt;
+        }
+
         return UnoActionResult.Success(state, events);
     }
 
@@ -568,7 +590,10 @@ public class UNOGame : IGame
 
         // A pending penalty is accepted exclusively through AcceptDraw (which may be
         // preceded by a Wild Draw Four challenge); DrawCard is the voluntary draw.
-        if (state.PendingDrawCount > 0)
+        // The restriction applies only to the debt owner - other players keep
+        // playing normally while a skipped player's debt is outstanding.
+        if (state.PendingDrawCount > 0
+            && (state.PendingDrawTargetIndex is null || state.PendingDrawTargetIndex == playerIndex))
             return UnoActionResult.Failure("Use AcceptDraw to take the pending cards");
 
         // Classic UNO: one draw per turn.
@@ -652,10 +677,19 @@ public class UNOGame : IGame
         if (state.PendingDrawCount != 4)
             return UnoActionResult.Failure("No Wild Draw Four to challenge");
 
+        // Only a debt that is exactly the Wild Draw Four's 4 cards is challengeable;
+        // accumulated debts (e.g. +2 from an earlier round) cannot be.
+        if (!state.PendingDrawChallengeable)
+            return UnoActionResult.Failure("This draw penalty cannot be challenged");
+
         // A challenge may only be decided once: after a successful challenge the
         // offender is recorded and further challenge attempts are rejected.
         if (state.PendingDrawOffenderIndex.HasValue)
             return UnoActionResult.Failure("The Wild Draw Four challenge has already been resolved");
+
+        // Only the debtor may challenge.
+        if (state.PendingDrawTargetIndex is { } target && target != playerIndex)
+            return UnoActionResult.Failure("This draw penalty is not yours to challenge");
 
         if (state.DiscardPile.Count == 0)
             return UnoActionResult.Failure("No card to challenge");
@@ -685,21 +719,42 @@ public class UNOGame : IGame
 
         if (challengeSuccessful)
         {
-            // Official rule: a successful challenge means the offender draws 4 and
-            // the challenger is off the hook. The offender is skipped this round.
-            state.PendingDrawCount = 4;
-            state.PendingDrawOffenderIndex = lastPlayerIndex;
-            events.Add($"Challenge successful! {GetPlayerName(state, lastPlayerIndex)} had a matching color card and must draw 4!");
-        }
-        else
-        {
-            // Official rule: a failed challenge costs the challenger 6 (4 + 2 penalty).
-            state.PendingDrawCount = 6;
-            events.Add($"Challenge failed! {GetPlayerName(state, playerIndex)} must draw 6!");
+            // Official rule: a successful challenge means the offender draws the 4
+            // immediately and the challenger is off the hook, keeping their turn.
+            if (state.DrawPile.Count < 4)
+            {
+                state.DrawPile.ReshuffleDiscard(state.DiscardPile);
+                events.Add("Reshuffled discard pile into draw pile");
+            }
+            var offenderCards = state.DrawPile.Draw(4);
+            state.PlayerHands[lastPlayerIndex].AddRange(offenderCards);
+            state.PendingDrawCount = 0;
+            state.PendingDrawTargetIndex = null;
+            state.PendingDrawOffenderIndex = null;
+            state.PendingDrawChallengeable = false;
+            events.Add($"Challenge successful! {GetPlayerName(state, lastPlayerIndex)} had a matching color card and draws {offenderCards.Count}!");
+
+            // No advance: the challenger keeps the turn (play or draw next).
+            return UnoActionResult.Success(state, events, wasChallenged: true, challengeSuccessful: true);
         }
 
-        // Don't advance player here - the draw will be handled by AcceptDraw
-        return UnoActionResult.Success(state, events, wasChallenged: true, challengeSuccessful: challengeSuccessful);
+        // Official rule: a failed challenge costs the challenger 6 (4 + 2 penalty)
+        // immediately and forfeits the turn.
+        if (state.DrawPile.Count < 6)
+        {
+            state.DrawPile.ReshuffleDiscard(state.DiscardPile);
+            events.Add("Reshuffled discard pile into draw pile");
+        }
+        var challengeCards = state.DrawPile.Draw(6);
+        state.PlayerHands[playerIndex].AddRange(challengeCards);
+        state.PendingDrawCount = 0;
+        state.PendingDrawTargetIndex = null;
+        state.PendingDrawChallengeable = false;
+        events.Add($"Challenge failed! {GetPlayerName(state, playerIndex)} draws {challengeCards.Count}!");
+
+        state.AdvancePlayer(state.PlayerHands.Count);
+
+        return UnoActionResult.Success(state, events, wasChallenged: true, challengeSuccessful: false);
     }
 
     private UnoActionResult ProcessAcceptDraw(UnoGameState state, int playerIndex)
@@ -707,9 +762,15 @@ public class UNOGame : IGame
         if (state.PendingDrawCount == 0)
             return UnoActionResult.Failure("No pending draw to accept");
 
+        // Only the debt owner (or the challenge-offender flow) may accept.
+        if (state.PendingDrawTargetIndex is { } target && target != playerIndex)
+            return UnoActionResult.Failure("The draw penalty is not yours to accept");
+
         var hand = state.PlayerHands[playerIndex];
         var drawCount = state.PendingDrawCount;
         state.PendingDrawCount = 0;
+        state.PendingDrawTargetIndex = null;
+        state.PendingDrawChallengeable = false;
 
         // Reshuffle if needed
         var events = new List<string>();
@@ -771,28 +832,40 @@ public class UNOGame : IGame
             $"{GetPlayerName(state, playerIndex)} ran out of time - turn skipped"
         };
 
-        // A player who times out while owing a draw penalty must still take it
-        // (before being skipped), otherwise a timeout would dodge the penalty.
-        if (state.PendingDrawCount > 0)
-        {
-            state.PendingDrawOffenderIndex = null;
-
-            var drawCount = state.PendingDrawCount;
-            state.PendingDrawCount = 0;
-            if (state.DrawPile.Count < drawCount)
-            {
-                state.DrawPile.ReshuffleDiscard(state.DiscardPile);
-                events.Add("Reshuffled discard pile into draw pile");
-            }
-            var penaltyCards = state.DrawPile.Draw(drawCount);
-            state.PlayerHands[playerIndex].AddRange(penaltyCards);
-            events.Add($"{GetPlayerName(state, playerIndex)} drew {penaltyCards.Count} penalty card(s)");
-        }
-
+        // A pending draw debt SURVIVES the skip: the debtor still owes it on their
+        // next turn (the play/draw guards and AcceptDraw enforce it there), so a
+        // timeout can never be used to dodge a penalty. Penalties from different
+        // rounds accumulate (+2 then +4 = draw 6).
         if (timer.ConsecutiveTimeouts >= config.MaxAfkTurns)
         {
             state.EliminatedPlayerIndexes.Add(playerIndex);
             events.Add($"{GetPlayerName(state, playerIndex)} was removed for inactivity (AFK)");
+
+            // Resolve the removed player's unresolved debt: a successful challenge
+            // makes the OFFENDER pay immediately; otherwise the debt is dropped.
+            if (state.PendingDrawCount > 0 && state.PendingDrawTargetIndex == playerIndex)
+            {
+                var drawCount = state.PendingDrawCount;
+                state.PendingDrawCount = 0;
+                state.PendingDrawTargetIndex = null;
+
+                if (state.PendingDrawOffenderIndex is { } offender)
+                {
+                    state.PendingDrawOffenderIndex = null;
+                    if (state.DrawPile.Count < drawCount)
+                    {
+                        state.DrawPile.ReshuffleDiscard(state.DiscardPile);
+                        events.Add("Reshuffled discard pile into draw pile");
+                    }
+                    var offenderCards = state.DrawPile.Draw(drawCount);
+                    state.PlayerHands[offender].AddRange(offenderCards);
+                    events.Add($"{GetPlayerName(state, offender)} drew {offenderCards.Count} card(s) (challenge penalty)");
+                }
+                else
+                {
+                    events.Add($"{GetPlayerName(state, playerIndex)}'s pending draw was dropped");
+                }
+            }
 
             var remaining = state.PlayerHands.Count - state.EliminatedPlayerIndexes.Count;
             if (remaining <= 1)
