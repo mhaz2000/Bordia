@@ -108,9 +108,24 @@ public class TurnTimeoutService : BackgroundService
     {
         var current = GameState.FromJson(session.CurrentStateJson);
 
-        if (current.IsOver
-            || current.NextActionDeadlineUtc is not { } deadline
-            || now <= deadline)
+        if (current.IsOver)
+        {
+            return;
+        }
+
+        // Priority: an expired turn deadline is handled first (it may end the game
+        // via AFK elimination); the overall game time limit is checked on the next
+        // sweep one second later if the game is still running.
+        string actionType;
+        if (current.NextActionDeadlineUtc is { } deadline && now > deadline)
+        {
+            actionType = "TurnTimeout";
+        }
+        else if (current.GameEndsAtUtc is { } gameEndsAt && now >= gameEndsAt)
+        {
+            actionType = "GameTimeExpired";
+        }
+        else
         {
             return;
         }
@@ -135,7 +150,7 @@ public class TurnTimeoutService : BackgroundService
         var action = new GameAction
         {
             PlayerId = new PlayerId(expiredUserId),
-            ActionType = "TurnTimeout",
+            ActionType = actionType,
             Payload = "{}",
             Timestamp = now,
             SequenceNumber = nextSequence
@@ -147,7 +162,8 @@ public class TurnTimeoutService : BackgroundService
         {
             // Usually a race with a real action submitted just before the deadline.
             _logger.LogInformation(
-                "Discarding turn timeout for session {SessionId}: {Reason}",
+                "Discarding {ActionType} for session {SessionId}: {Reason}",
+                actionType,
                 session.Id,
                 result.Error ?? "no new state");
             return;
@@ -157,7 +173,7 @@ public class TurnTimeoutService : BackgroundService
         db.GameActionLogs.Add(GameActionLog.Create(
             session.Id,
             expiredUserId,
-            "TurnTimeout",
+            actionType,
             "{}",
             nextSequence));
 
@@ -183,7 +199,7 @@ public class TurnTimeoutService : BackgroundService
             SessionId = session.Id,
             ChangeType = GameChangeType.ActionProcessed,
             PlayerId = expiredUserId,
-            ActionType = "TurnTimeout"
+            ActionType = actionType
         }, cancellationToken);
 
         if (session.Status == GameSessionStatus.Finished)
@@ -197,7 +213,8 @@ public class TurnTimeoutService : BackgroundService
         }
 
         _logger.LogInformation(
-            "Turn timed out for session {SessionId}, player {PlayerId}",
+            "{ActionType} processed for session {SessionId}, player {PlayerId}",
+            actionType,
             session.Id,
             expiredUserId);
     }

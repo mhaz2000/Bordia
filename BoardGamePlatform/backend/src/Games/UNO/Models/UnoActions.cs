@@ -23,8 +23,14 @@ public enum UnoActionType
     /// <summary>Accept the draw penalty (don't challenge).</summary>
     AcceptDraw,
 
+    /// <summary>End the turn after a voluntary draw, declining to play the drawn card.</summary>
+    Pass,
+
     /// <summary>System action: the current player's turn timed out.</summary>
-    TurnTimeout
+    TurnTimeout,
+
+    /// <summary>System action: the game's total time limit was reached.</summary>
+    GameTimeExpired
 }
 
 /// <summary>
@@ -68,6 +74,14 @@ public record ChallengeWildDrawFourPayload
 /// Payload for the AcceptDraw action.
 /// </summary>
 public record AcceptDrawPayload
+{
+    // No additional data needed
+}
+
+/// <summary>
+/// Payload for the Pass action (declining to play a voluntarily drawn card).
+/// </summary>
+public record PassPayload
 {
     // No additional data needed
 }

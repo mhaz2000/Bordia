@@ -59,6 +59,12 @@ public class UnoGameState
     public int PendingDrawCount { get; set; } = 0;
 
     /// <summary>
+    /// When a Wild Draw Four challenge succeeds, the player position who must draw
+    /// the penalty (the offender who played the card) instead of the challenger.
+    /// </summary>
+    public int? PendingDrawOffenderIndex { get; set; } = null;
+
+    /// <summary>
     /// Whether the next player is skipped.
     /// </summary>
     public bool NextPlayerSkipped { get; set; } = false;
@@ -94,11 +100,24 @@ public class UnoGameState
     public DateTime TurnStartUtc { get; set; }
 
     /// <summary>
+    /// UTC moment at which the game must be force-finished. Mirrored onto
+    /// <see cref="GameEngine.Core.Models.GameState.GameEndsAtUtc"/> so the Game
+    /// Service can poll a game-agnostic deadline.
+    /// </summary>
+    public DateTime? GameEndsAtUtc { get; set; }
+
+    /// <summary>
     /// UTC deadline for the current player's action. Mirrored onto
     /// <see cref="GameState.NextActionDeadlineUtc"/> so the Game Service can
     /// poll a game-agnostic deadline.
     /// </summary>
     public DateTime? NextActionDeadlineUtc { get; set; }
+
+    /// <summary>
+    /// Whether the current player already took their voluntary draw this turn
+    /// (one draw per turn). Reset whenever the turn moves to the next player.
+    /// </summary>
+    public bool DrawnThisTurn { get; set; }
 
     /// <summary>
     /// Player positions removed from the game (e.g. AFK timeouts).
@@ -151,6 +170,7 @@ public class UnoGameState
     /// </summary>
     public void AdvancePlayer(int playerCount)
     {
+        DrawnThisTurn = false;
         if (NextPlayerSkipped)
         {
             NextPlayerSkipped = false;
@@ -187,13 +207,16 @@ public class UnoGameState
 
     /// <summary>
     /// The seconds the given player is allotted for their current turn.
+    /// The total allowance (base + bank - penalty) can never exceed
+    /// <see cref="UnoTurnTimerConfig.MaxBankSeconds"/>, so the bank cannot grow a
+    /// single turn past the configured ceiling.
     /// </summary>
     public double MaxTurnSeconds(int playerIndex, UnoTurnTimerConfig config)
     {
         var timer = EnsureTimer(playerIndex);
         var raw = config.BaseTurnSeconds + timer.BankSeconds - timer.DeferredPenaltySeconds;
         var floor = Math.Max(0, config.BaseTurnSeconds - config.MaxOverrunSeconds);
-        return Math.Max(floor, raw);
+        return Math.Max(floor, Math.Min(config.MaxBankSeconds, raw));
     }
 
     /// <summary>
@@ -224,7 +247,10 @@ public class UnoGameState
             if (elapsed.TotalSeconds <= allotted)
             {
                 var saved = Math.Max(0, allotted - elapsed.TotalSeconds);
-                timer.BankSeconds = Math.Min(config.MaxBankSeconds, timer.BankSeconds + saved);
+                // The bank can never push a future turn past MaxBankSeconds total
+                // (base + bank), so its effective capacity is the difference.
+                var bankCapacity = Math.Max(0, config.MaxBankSeconds - config.BaseTurnSeconds);
+                timer.BankSeconds = Math.Min(bankCapacity, timer.BankSeconds + saved);
             }
             else
             {

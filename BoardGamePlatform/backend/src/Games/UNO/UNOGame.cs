@@ -59,6 +59,7 @@ public class UNOGame : IGame
                         if (timerElement.TryGetProperty("MaxBankSeconds", out var m)) timerConfig.MaxBankSeconds = m.GetDouble();
                         if (timerElement.TryGetProperty("MaxOverrunSeconds", out var o)) timerConfig.MaxOverrunSeconds = o.GetDouble();
                         if (timerElement.TryGetProperty("MaxAfkTurns", out var a)) timerConfig.MaxAfkTurns = a.GetInt32();
+                        if (timerElement.TryGetProperty("TotalGameTimeMinutes", out var t)) timerConfig.TotalGameTimeMinutes = t.GetDouble();
                     }
                 }
             }
@@ -118,8 +119,12 @@ public class UNOGame : IGame
         // Apply initial card effect if it's an action card
         ApplyInitialCardEffect(unoState, topCard.Value);
 
-        // Start the first player's turn clock
+        // Start the first player's turn clock and the overall game clock
         unoState.SetTurnClock();
+        if (timerConfig.TotalGameTimeMinutes > 0)
+        {
+            unoState.GameEndsAtUtc = DateTime.UtcNow.AddMinutes(timerConfig.TotalGameTimeMinutes);
+        }
 
         var gameState = new GameState
         {
@@ -130,6 +135,7 @@ public class UNOGame : IGame
             IsOver = false,
             Version = 1,
             NextActionDeadlineUtc = unoState.NextActionDeadlineUtc,
+            GameEndsAtUtc = unoState.GameEndsAtUtc,
             Data = new Dictionary<string, object?>
             {
                 ["UnoState"] = unoState.ToJson(),
@@ -218,7 +224,9 @@ public class UNOGame : IGame
             UnoActionType.CallUno => ProcessCallUno(unoState, playerIndex),
             UnoActionType.ChallengeWildDrawFour => ProcessChallengeWildDrawFour(unoState, playerIndex),
             UnoActionType.AcceptDraw => ProcessAcceptDraw(unoState, playerIndex),
+            UnoActionType.Pass => ProcessPass(unoState, playerIndex),
             UnoActionType.TurnTimeout => ProcessTurnTimeout(unoState, playerIndex),
+            UnoActionType.GameTimeExpired => ProcessGameTimeExpired(unoState),
             _ => UnoActionResult.Failure($"Unknown action type: {actionType}")
         };
 
@@ -233,10 +241,11 @@ public class UNOGame : IGame
         }
 
         // Turn timer accounting: bank unused time / charge overruns after genuine
-        // turn actions, and clear the deadline when the game has ended.
+        // turn actions, and clear the deadlines when the game has ended.
         if (result.GameEnded)
         {
             unoState.NextActionDeadlineUtc = null;
+            unoState.GameEndsAtUtc = null;
         }
         else if (IsTurnAction(actionType))
         {
@@ -263,6 +272,7 @@ public class UNOGame : IGame
             Winner = result.WinnerIndex.HasValue ? state.Players[result.WinnerIndex.Value] : null,
             Version = state.Version + 1,
             NextActionDeadlineUtc = unoState.NextActionDeadlineUtc,
+            GameEndsAtUtc = unoState.GameEndsAtUtc,
             Data = new Dictionary<string, object?>
             {
                 ["UnoState"] = result.NewState!.ToJson(),
@@ -311,6 +321,28 @@ public class UNOGame : IGame
 
         if (topCard == null) return actions;
 
+        // Pending penalty: the player may only accept the draw or (for a Wild Draw
+        // Four) challenge it. No card plays, no voluntary draw, no pass.
+        if (unoState.PendingDrawCount > 0)
+        {
+            actions.Add(CreateAction(UnoActionType.AcceptDraw, new AcceptDrawPayload()));
+
+            if (unoState.PendingDrawCount == 4 && !unoState.PendingDrawOffenderIndex.HasValue)
+            {
+                var lastCard = unoState.DiscardPile[^1];
+                if (lastCard.IsWild && lastCard.Value == CardValue.WildDrawFour)
+                {
+                    var lastPlayerIndex = GetPreviousPlayerIndex(unoState);
+                    if (lastPlayerIndex != playerIndex)
+                    {
+                        actions.Add(CreateAction(UnoActionType.ChallengeWildDrawFour, new ChallengeWildDrawFourPayload()));
+                    }
+                }
+            }
+
+            return actions;
+        }
+
         // Get playable cards
         var playableCards = hand.GetPlayableCards(topCard.Value, unoState.CurrentColor);
 
@@ -333,37 +365,23 @@ public class UNOGame : IGame
             }
         }
 
-        // DrawCard action (if no playable cards or player chooses to draw)
-        if (playableCards.Count == 0 || true) // Can always choose to draw
+        // Voluntary draw: once per turn (alternatively to playing).
+        if (!unoState.DrawnThisTurn)
         {
-            var drawCount = unoState.PendingDrawCount > 0 ? unoState.PendingDrawCount : 1;
-            actions.Add(CreateAction(UnoActionType.DrawCard, new DrawCardPayload { Count = drawCount }));
+            actions.Add(CreateAction(UnoActionType.DrawCard, new DrawCardPayload { Count = 1 }));
+        }
+        else
+        {
+            // After a voluntary draw the turn can only be ended (or UNO called).
+            // Note: an unplayable drawn card already auto-passed in ProcessDrawCard,
+            // so reaching this branch means the drawn card is playable.
+            actions.Add(CreateAction(UnoActionType.Pass, new PassPayload()));
         }
 
         // CallUno action
         if (hand.HasUno && !unoState.UnoCalled && unoState.UnoPendingPlayerIndex == playerIndex)
         {
             actions.Add(CreateAction(UnoActionType.CallUno, new CallUnoPayload()));
-        }
-
-        // ChallengeWildDrawFour action
-        if (unoState.PendingDrawCount == 4 && unoState.DiscardPile.Count > 0)
-        {
-            var lastCard = unoState.DiscardPile[^1];
-            if (lastCard.IsWild && lastCard.Value == CardValue.WildDrawFour)
-            {
-                var lastPlayerIndex = GetPreviousPlayerIndex(unoState);
-                if (lastPlayerIndex != playerIndex)
-                {
-                    actions.Add(CreateAction(UnoActionType.ChallengeWildDrawFour, new ChallengeWildDrawFourPayload()));
-                }
-            }
-        }
-
-        // AcceptDraw action
-        if (unoState.PendingDrawCount > 0)
-        {
-            actions.Add(CreateAction(UnoActionType.AcceptDraw, new AcceptDrawPayload()));
         }
 
         return actions;
@@ -445,6 +463,16 @@ public class UNOGame : IGame
 
         if (topCard == null)
             return UnoActionResult.Failure("No top card");
+
+        // Classic UNO: a pending Draw Two / Wild Draw Four penalty must be drawn
+        // (or a Wild Draw Four may be challenged). Playing a card is not allowed -
+        // without this guard the penalty would silently transfer to the next player.
+        if (state.PendingDrawCount > 0)
+        {
+            return UnoActionResult.Failure(state.PendingDrawCount == 4
+                ? "You must accept the draw or challenge the Wild Draw Four"
+                : $"You must draw {state.PendingDrawCount} cards first");
+        }
 
         // Verify card is in hand
         if (!hand.Contains(card))
@@ -533,44 +561,70 @@ public class UNOGame : IGame
 
     private UnoActionResult ProcessDrawCard(UnoGameState state, int playerIndex, DrawCardPayload? payload)
     {
-        var drawCount = payload?.Count ?? (state.PendingDrawCount > 0 ? state.PendingDrawCount : 1);
+        // The draw count always comes from server state, never from the client
+        // payload: a pending penalty must be accepted via AcceptDraw, and a regular
+        // draw is exactly one card. Ignoring the payload prevents forged counts.
+        _ = payload;
+
+        // A pending penalty is accepted exclusively through AcceptDraw (which may be
+        // preceded by a Wild Draw Four challenge); DrawCard is the voluntary draw.
+        if (state.PendingDrawCount > 0)
+            return UnoActionResult.Failure("Use AcceptDraw to take the pending cards");
+
+        // Classic UNO: one draw per turn.
+        if (state.DrawnThisTurn)
+            return UnoActionResult.Failure("You may only draw once per turn");
+
         var hand = state.PlayerHands[playerIndex];
         var events = new List<string>();
 
         // Reshuffle if needed
-        if (state.DrawPile.Count < drawCount)
+        if (state.DrawPile.Count < 1)
         {
             state.DrawPile.ReshuffleDiscard(state.DiscardPile);
             events.Add("Reshuffled discard pile into draw pile");
         }
 
-        var drawnCards = state.DrawPile.Draw(drawCount);
+        var drawnCards = state.DrawPile.Draw(1);
+        if (drawnCards.Count == 0)
+            return UnoActionResult.Failure("No cards left to draw");
+
         hand.AddRange(drawnCards);
-        state.PendingDrawCount = 0;
+        state.DrawnThisTurn = true;
 
-        events.Add($"{GetPlayerName(state, playerIndex)} drew {drawnCards.Count} card(s)");
+        // Classic UNO: drawing is an alternative to playing. If the drawn card is
+        // playable the player may play it or pass; if not, the turn ends
+        // automatically. Do NOT SetTurnClock here - ApplyTurnTimeAccounting detects
+        // the turn ended (player index changed) and starts the next clock itself.
+        var topCard = state.TopCard;
+        var drawnPlayable = topCard != null && drawnCards[0].CanPlayOn(topCard.Value, state.CurrentColor);
 
-        Card? playableDrawnCard = null;
-        if (drawnCards.Count > 0)
+        if (!drawnPlayable)
         {
-            var topCard = state.TopCard;
-            if (topCard != null)
-            {
-                playableDrawnCard = drawnCards.FirstOrDefault(c => c.CanPlayOn(topCard.Value, state.CurrentColor));
-            }
-        }
-
-        // If there was a pending draw penalty, player must accept the draw (can't play)
-        // Otherwise, they can choose to play the drawn card if playable
-        bool wasPenalty = drawCount > 1;
-
-        // Advance to next player (unless they play the drawn card)
-        if (!wasPenalty || playableDrawnCard == null)
-        {
+            events.Add($"{GetPlayerName(state, playerIndex)} drew a card - not playable, turn passes");
             state.AdvancePlayer(state.PlayerHands.Count);
         }
+        else
+        {
+            events.Add($"{GetPlayerName(state, playerIndex)} drew a card");
+        }
 
-        return UnoActionResult.Success(state, events, gameEnded: false, drawnCard: playableDrawnCard, canPlayDrawnCard: !wasPenalty && playableDrawnCard != null);
+        return UnoActionResult.Success(state, events, drawnCard: drawnCards[0], canPlayDrawnCard: drawnPlayable);
+    }
+
+    private UnoActionResult ProcessPass(UnoGameState state, int playerIndex)
+    {
+        // Pass is only valid after a voluntary draw this turn.
+        if (!state.DrawnThisTurn)
+            return UnoActionResult.Failure("You can only pass after drawing a card");
+
+        var events = new List<string> { $"{GetPlayerName(state, playerIndex)} passed" };
+
+        // No SetTurnClock here: ApplyTurnTimeAccounting sees the turn ended and
+        // starts the next player's clock (also banks the passing player's time).
+        state.AdvancePlayer(state.PlayerHands.Count);
+
+        return UnoActionResult.Success(state, events);
     }
 
     private UnoActionResult ProcessCallUno(UnoGameState state, int playerIndex)
@@ -597,6 +651,11 @@ public class UNOGame : IGame
     {
         if (state.PendingDrawCount != 4)
             return UnoActionResult.Failure("No Wild Draw Four to challenge");
+
+        // A challenge may only be decided once: after a successful challenge the
+        // offender is recorded and further challenge attempts are rejected.
+        if (state.PendingDrawOffenderIndex.HasValue)
+            return UnoActionResult.Failure("The Wild Draw Four challenge has already been resolved");
 
         if (state.DiscardPile.Count == 0)
             return UnoActionResult.Failure("No card to challenge");
@@ -626,13 +685,15 @@ public class UNOGame : IGame
 
         if (challengeSuccessful)
         {
-            // Challenger wins - challenger draws 4 instead of 6 (2 extra)
-            state.PendingDrawCount = 6; // 4 for Wild Draw Four + 2 penalty
-            events.Add($"Challenge successful! {GetPlayerName(state, lastPlayerIndex)} had a matching color card. They must draw 6!");
+            // Official rule: a successful challenge means the offender draws 4 and
+            // the challenger is off the hook. The offender is skipped this round.
+            state.PendingDrawCount = 4;
+            state.PendingDrawOffenderIndex = lastPlayerIndex;
+            events.Add($"Challenge successful! {GetPlayerName(state, lastPlayerIndex)} had a matching color card and must draw 4!");
         }
         else
         {
-            // Challenge failed - challenger draws 6 (4 + 2 penalty)
+            // Official rule: a failed challenge costs the challenger 6 (4 + 2 penalty).
             state.PendingDrawCount = 6;
             events.Add($"Challenge failed! {GetPlayerName(state, playerIndex)} must draw 6!");
         }
@@ -658,12 +719,27 @@ public class UNOGame : IGame
             events.Add("Reshuffled discard pile into draw pile");
         }
 
+        // Successful-challenge flow: the OFFENDER draws the 4 cards, not the
+        // challenger, who keeps the turn.
+        if (state.PendingDrawOffenderIndex is { } offenderIndex && offenderIndex != playerIndex)
+        {
+            var offenderHand = state.PlayerHands[offenderIndex];
+            var offenderCards = state.DrawPile.Draw(drawCount);
+            offenderHand.AddRange(offenderCards);
+            state.PendingDrawOffenderIndex = null;
+            events.Add($"{GetPlayerName(state, offenderIndex)} drew {offenderCards.Count} card(s) (challenge penalty)");
+
+            // The challenger keeps the turn: they may play or draw now.
+            state.DrawnThisTurn = false;
+            return UnoActionResult.Success(state, events);
+        }
+
         var drawnCards = state.DrawPile.Draw(drawCount);
         hand.AddRange(drawnCards);
 
         events.Add($"{GetPlayerName(state, playerIndex)} accepted draw of {drawnCards.Count} card(s)");
 
-        // Advance to next player
+        // Classic UNO: a penalty draw forfeits the turn - drawn cards may not be played.
         state.AdvancePlayer(state.PlayerHands.Count);
 
         return UnoActionResult.Success(state, events);
@@ -695,6 +771,24 @@ public class UNOGame : IGame
             $"{GetPlayerName(state, playerIndex)} ran out of time - turn skipped"
         };
 
+        // A player who times out while owing a draw penalty must still take it
+        // (before being skipped), otherwise a timeout would dodge the penalty.
+        if (state.PendingDrawCount > 0)
+        {
+            state.PendingDrawOffenderIndex = null;
+
+            var drawCount = state.PendingDrawCount;
+            state.PendingDrawCount = 0;
+            if (state.DrawPile.Count < drawCount)
+            {
+                state.DrawPile.ReshuffleDiscard(state.DiscardPile);
+                events.Add("Reshuffled discard pile into draw pile");
+            }
+            var penaltyCards = state.DrawPile.Draw(drawCount);
+            state.PlayerHands[playerIndex].AddRange(penaltyCards);
+            events.Add($"{GetPlayerName(state, playerIndex)} drew {penaltyCards.Count} penalty card(s)");
+        }
+
         if (timer.ConsecutiveTimeouts >= config.MaxAfkTurns)
         {
             state.EliminatedPlayerIndexes.Add(playerIndex);
@@ -711,10 +805,51 @@ public class UNOGame : IGame
             }
         }
 
+        // A timeout is not a played turn: ConsecutiveTimeouts keeps counting until
+        // the player completes a real turn (ApplyTurnTimeAccounting resets it).
         state.AdvancePlayer(state.PlayerHands.Count);
         state.SetTurnClock();
 
         return UnoActionResult.Success(state, events);
+    }
+
+    /// <summary>
+    /// Handles the system-dispatched end of the game's total time limit: the game
+    /// is force-finished and the player with the fewest cards wins. When the lowest
+    /// count is shared, the game ends in a draw (no winner).
+    /// </summary>
+    private UnoActionResult ProcessGameTimeExpired(UnoGameState state)
+    {
+        if (state.GameEndsAtUtc is not { } endsAt || DateTime.UtcNow < endsAt)
+        {
+            return UnoActionResult.Failure("Game time limit has not been reached");
+        }
+
+        var activeIndexes = Enumerable.Range(0, state.PlayerHands.Count)
+            .Where(i => !state.EliminatedPlayerIndexes.Contains(i))
+            .ToList();
+
+        var minCards = activeIndexes.Min(i => state.PlayerHands[i].Count);
+        var fewestCards = activeIndexes.Where(i => state.PlayerHands[i].Count == minCards).ToList();
+
+        var events = new List<string>
+        {
+            $"Game time limit reached - the player with the fewest cards wins"
+        };
+
+        if (fewestCards.Count == 1)
+        {
+            var winnerIndex = fewestCards[0];
+            events.Add($"{GetPlayerName(state, winnerIndex)} wins with {minCards} card(s)!");
+            state.NextActionDeadlineUtc = null;
+            state.GameEndsAtUtc = null;
+            return UnoActionResult.Success(state, events, gameEnded: true, winnerIndex: winnerIndex);
+        }
+
+        events.Add($"Tie! {fewestCards.Count} players have {minCards} card(s) - the game is a draw.");
+        state.NextActionDeadlineUtc = null;
+        state.GameEndsAtUtc = null;
+        return UnoActionResult.Success(state, events, gameEnded: true);
     }
 
     /// <summary>
@@ -725,5 +860,6 @@ public class UNOGame : IGame
         => type is UnoActionType.PlayCard
             or UnoActionType.DrawCard
             or UnoActionType.AcceptDraw
+            or UnoActionType.Pass
             or UnoActionType.ChallengeWildDrawFour;
 }

@@ -54,6 +54,15 @@ public class GameState
     public DateTime? NextActionDeadlineUtc { get; set; }
 
     /// <summary>
+    /// UTC moment at which the whole game must end, when the game enforces a total
+    /// duration limit. <see langword="null"/> means the game has no overall time
+    /// limit. The Game Service polls this game-agnostic field and dispatches a
+    /// <c>GameTimeExpired</c> system action so the engine decides the outcome
+    /// (winner, tie, elimination rules) per its own rules.
+    /// </summary>
+    public DateTime? GameEndsAtUtc { get; set; }
+
+    /// <summary>
     /// Dictionary of game-specific state, keyed by game-defined names.
     /// Values must be JSON-serializable and contain no circular references.
     /// </summary>

@@ -33,6 +33,7 @@ export interface GameState {
   winner?: PlayerId
   version: number
   nextActionDeadlineUtc?: string
+  gameEndsAtUtc?: string
   data: Record<string, unknown>
 }
 

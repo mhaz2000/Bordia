@@ -3,15 +3,16 @@ import { ArrowPathIcon, ClockIcon, PlayIcon, TrophyIcon } from '@heroicons/react
 import type { GameSession, GameState } from '@/shared/api/game'
 import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
-import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
 import { useCountdown } from '@/shared/hooks/useCountdown'
 import {
+  CARD_HEX,
   COLOR_CHOICES,
-  cardColor,
   cardValueLabel,
   isPlayable,
   isWild,
   parseUnoState,
+  valueGlyph,
+  WILD_GRADIENT,
   type UnoCard,
 } from './uno'
 
@@ -24,18 +25,16 @@ interface UnoGameViewProps {
 }
 
 export function UnoGameView({ state, session, userId, onAction, isSending }: UnoGameViewProps) {
-  const [colorForCard, setColorForCard] = useState<UnoCard | null>(null)
+  const [wildPick, setWildPick] = useState<UnoCard | null>(null)
   const [confirmDraw, setConfirmDraw] = useState(false)
 
   const uno = useMemo(() => parseUnoState(state), [state])
 
   if (!uno) {
     return (
-      <Card>
-        <CardContent className="py-16 text-center text-gray-500">
-          Waiting for the first game state...
-        </CardContent>
-      </Card>
+      <div className="rounded-3xl border border-emerald-200 bg-gradient-to-b from-emerald-900 to-emerald-950 py-20 text-center text-emerald-200/70">
+        Waiting for the first game state...
+      </div>
     )
   }
 
@@ -44,28 +43,41 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
   const isMyTurn = meIndex >= 0 && meIndex === uno.CurrentPlayerIndex
   const topCard = uno.DiscardPile[uno.DiscardPile.length - 1]
   const activeColor = uno.CurrentColor ?? topCard?.Color ?? 0
-  const activeColorMeta = cardColor(activeColor)
   const clockwise = uno.Direction >= 1
-
   const eliminated = uno.EliminatedPlayerIndexes ?? []
   const iWasRemoved = !state.isOver && meIndex >= 0 && eliminated.includes(meIndex)
 
   // Turn timer countdown driven by the platform deadline on the state root.
   const remainingMs = useCountdown(state.nextActionDeadlineUtc)
+  const gameRemainingMs = useCountdown(state.gameEndsAtUtc)
   const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
   const currentTimer = (uno.PlayerTimers ?? [])[uno.CurrentPlayerIndex]
   const timerConfig = uno.TimerConfig
   const baseSeconds = timerConfig?.BaseTurnSeconds ?? 30
+  const maxBankSeconds = timerConfig?.MaxBankSeconds ?? 120
   const overrunCeiling = timerConfig?.MaxOverrunSeconds ?? 15
   const allottedSeconds = Math.max(
     Math.max(0, baseSeconds - overrunCeiling),
-    baseSeconds + (currentTimer?.BankSeconds ?? 0) - (currentTimer?.DeferredPenaltySeconds ?? 0)
+    Math.min(
+      maxBankSeconds,
+      baseSeconds + (currentTimer?.BankSeconds ?? 0) - (currentTimer?.DeferredPenaltySeconds ?? 0)
+    )
   )
   const timerFraction =
-    allottedSeconds > 0 && remainingMs > 0 ? Math.min(1, remainingMs / 1000 / allottedSeconds) : 0
+    allottedSeconds > 0 ? Math.max(0, Math.min(1, remainingMs / 1000 / allottedSeconds)) : 0
   const timerCritical = remainingSeconds <= 5
 
+  // Game clock: overall time limit before the game is force-finished.
+  const gameRemainingMinutes = Math.floor(gameRemainingMs / 60000)
+  const gameRemainingSeconds = Math.floor((gameRemainingMs % 60000) / 1000)
+  const gameClockLabel =
+    state.isOver || gameRemainingMs <= 0
+      ? null
+      : `${gameRemainingMinutes}:${String(gameRemainingSeconds).padStart(2, '0')}`
+  const gameClockCritical = gameRemainingMs <= 5 * 60 * 1000
+
   const handCounts = state.players.map((_, i) => uno.PlayerHands[i]?.Cards?.length ?? 0)
+  const drawPileCount = uno.DrawPile?.Cards?.length ?? uno.DrawPile?.Count ?? 0
   const winnerId = state.isOver ? state.winner?.userId : undefined
   const winnerName =
     winnerId === undefined ? undefined
@@ -78,274 +90,355 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
     onAction('PlayCard', payload)
   }
 
-  const requestDraw = () => setConfirmDraw(true)
-  const confirmDrawAction = () => {
-    setConfirmDraw(false)
-    onAction('DrawCard', { Count: 1 })
+  const handleCardClick = (card: UnoCard) => {
+    // While a Draw Two / Wild Draw Four penalty is pending, playing is forbidden.
+    if (!isMyTurn || isSending || uno.PendingDrawCount > 0 || !isPlayable(card, uno)) return
+    if (isWild(card)) setWildPick(card)
+    else playCard(card)
   }
-  const callUno = () => onAction('CallUno', {})
-  const acceptDraw = () => onAction('AcceptDraw', {})
-  const challenge = () => onAction('ChallengeWildDrawFour', {})
 
-  const canDraw = isMyTurn && uno.PendingDrawCount === 0
-  const canCallUno = isMyTurn && myCards.length === 1 && !uno.UnoCalled && uno.UnoPendingPlayerIndex === meIndex
   const pendingDraw = uno.PendingDrawCount > 0 && isMyTurn
   const isWildDrawFour = !!topCard && isWild(topCard) && topCard.Value === 14
+  const challengeResolved = !!uno.PendingDrawOffenderIndex
+  const canChallenge = pendingDraw && isWildDrawFour && uno.PendingDrawCount === 4 && !challengeResolved
+  const canDraw = isMyTurn && uno.PendingDrawCount === 0 && !uno.DrawnThisTurn
+  // Pass appears whenever a voluntary draw has not been followed by a play.
+  // Normally the backend auto-passes an unplayable drawn card, so this only
+  // shows to decline a playable drawn card - but it also guarantees the player
+  // can never get stuck (e.g. a backend/frontend version mismatch).
+  const playableCount = pendingDraw ? 0 : myCards.filter((c) => isPlayable(c, uno)).length
+  const canPass = isMyTurn && uno.PendingDrawCount === 0 && !!uno.DrawnThisTurn
+  const canCallUno = isMyTurn && myCards.length === 1 && !uno.UnoCalled && uno.UnoPendingPlayerIndex === meIndex
 
   const currentPlayerUserId = state.players[uno.CurrentPlayerIndex]?.userId
   const activePlayerName =
     currentPlayerUserId === userId
-    ? 'You'
-    : session.players.find((p) => p.userId === currentPlayerUserId)?.displayName ?? 'Player'
+      ? 'You'
+      : session.players.find((p) => p.userId === currentPlayerUserId)?.displayName ?? 'Player'
 
-  const handleCardClick = (card: UnoCard) => {
-    if (!isMyTurn || isSending || !isPlayable(card, uno)) return
-    if (isWild(card)) setColorForCard(card)
-    else playCard(card)
-  }
+  const offenderName =
+    uno.PendingDrawOffenderIndex == null
+      ? null
+      : uno.PendingDrawOffenderIndex === meIndex
+        ? 'you'
+        : session.players.find((p) => p.userId === state.players[uno.PendingDrawOffenderIndex!].userId)?.displayName ?? 'the offender'
 
-  const handZero = myCards.length === 0
-  const canPlaceOnPile = !state.isOver
+  // Deterministic tilt for the discard top card so the pile looks "played".
+  const discardTilt = ((uno.DiscardPile.length * 37) % 13) - 6
 
   return (
-    <div className="grid gap-6 lg:grid-cols-4">
-      <div className="lg:col-span-3 space-y-6">
-        <div className="rounded-2xl bg-gradient-to-br from-emerald-100 via-white to-emerald-50 border border-emerald-200 p-4 sm:p-6 shadow-sm">
-          {/* Opponent seats */}
-          <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
-            {state.players.map((player, i) => {
-              if (i === meIndex) return null
-              const isTurn = uno.CurrentPlayerIndex === i
-              const removed = eliminated.includes(i)
-              const displayName = session.players.find((p) => p.userId === player.userId)?.displayName ?? 'Player'
-              return (
-                <div
-                  key={player.userId}
-                  className={`flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl bg-white/80 border transition-all ${
-                    removed
-                      ? 'border-gray-200 opacity-50'
-                      : isTurn
-                        ? 'border-emerald-400 ring-2 ring-emerald-200'
-                        : 'border-gray-200'
-                  }`}
-                >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shadow ${removed ? 'bg-gray-400' : 'bg-blue-500'}`}>
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                  <p className="text-xs font-medium text-gray-700 max-w-20 truncate">{displayName}</p>
+    <div className="max-w-5xl mx-auto space-y-4">
+      {/* ============================ TABLE ============================ */}
+      <div className="relative rounded-3xl border border-emerald-950/50 bg-gradient-to-b from-emerald-800 via-emerald-900 to-emerald-950 p-4 sm:p-6 shadow-2xl overflow-hidden">
+        {/* subtle felt texture highlight */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.08),transparent_60%)]" />
+
+        {/* Opponent seats */}
+        <div className="relative flex flex-wrap gap-3 justify-center">
+          {state.players.map((player, i) => {
+            if (i === meIndex) return null
+            const isTurn = uno.CurrentPlayerIndex === i
+            const removed = eliminated.includes(i)
+            const displayName = session.players.find((p) => p.userId === player.userId)?.displayName ?? 'Player'
+            return (
+              <div
+                key={player.userId}
+                className={`flex items-center gap-2.5 rounded-2xl px-3 py-2 border backdrop-blur-sm transition-all ${
+                  removed
+                    ? 'border-white/10 bg-white/5 opacity-50'
+                    : isTurn
+                      ? 'border-amber-300/70 bg-white/10 ring-2 ring-amber-300/40 scale-[1.03]'
+                      : 'border-white/15 bg-white/5'
+                }`}
+              >
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shadow ${removed ? 'bg-gray-500' : isTurn ? 'bg-amber-500' : 'bg-emerald-600'}`}>
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-white max-w-24 truncate leading-tight">{displayName}</p>
                   {removed ? (
-                    <span className="text-xs font-semibold text-gray-500">Removed (AFK)</span>
+                    <span className="text-[10px] font-medium text-white/50">Removed (AFK)</span>
                   ) : (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs font-semibold text-gray-500">
-                        {handCounts[i]} {handCounts[i] === 1 ? 'card' : 'cards'}
-                      </span>
-                      {handCounts[i] === 1 && <span className="text-xs text-amber-500">Uno!</span>}
+                    <div className="flex items-center gap-1.5">
+                      <MiniCardStack count={handCounts[i]} />
+                      {handCounts[i] === 1 && (
+                        <span className="text-[10px] font-black text-amber-300 animate-pulse">UNO!</span>
+                      )}
                     </div>
                   )}
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            )
+          })}
+        </div>
 
-          {/* Table status: current color + direction + pending draw */}
-          <div className="flex flex-wrap items-center justify-center gap-3 my-4">
-            <div className="flex items-center gap-2 rounded-full bg-white px-4 py-2 shadow-sm border border-gray-200">
-              <span
-                className={`w-5 h-5 rounded-full border-2 border-white shadow ${activeColorMeta.gradient}`}
-                aria-label={`Active color ${activeColorMeta.name}`}
+        {/* Center: draw pile + discard + color/direction */}
+        <div className="relative mt-6 flex items-center justify-center gap-10 sm:gap-16">
+          {/* Draw pile */}
+          <button
+            type="button"
+            onClick={() => setConfirmDraw(true)}
+            disabled={!canDraw || isSending}
+            aria-label={`Draw pile, ${drawPileCount} cards left`}
+            className={`group relative flex flex-col items-center gap-2 ${canDraw ? 'cursor-pointer' : 'cursor-default'}`}
+          >
+            <div className="relative">
+              {/* stacked backs */}
+              <CardBack className="absolute inset-0 translate-x-1.5 translate-y-1.5 rotate-3 opacity-60" size="pile" />
+              <CardBack className="absolute inset-0 translate-x-0.5 translate-y-0.5 -rotate-2 opacity-80" size="pile" />
+              <CardBack
+                className={`relative transition-transform ${canDraw ? 'group-hover:-translate-y-3 group-hover:shadow-[0_0_25px_rgba(251,191,36,0.45)]' : ''}`}
+                size="pile"
               />
-              <span className="text-sm font-medium text-gray-700">{activeColorMeta.name}</span>
             </div>
-            <div className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 shadow-sm border border-gray-200">
-              <ArrowPathIcon className={`w-4 h-4 text-gray-600 ${clockwise ? '' : 'scale-x-[-1]'}`} />
-              <span className="text-sm font-medium text-gray-700">{clockwise ? 'Clockwise' : 'Counter-clockwise'}</span>
-            </div>
-            {uno.PendingDrawCount > 0 && (
-              <div className="rounded-full bg-rose-50 border border-rose-200 px-4 py-2">
-                <span className="text-sm font-semibold text-rose-700">{uno.PendingDrawCount} cards to draw</span>
-              </div>
+            <span className="rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] font-bold text-white tabular-nums">
+              {drawPileCount} left
+            </span>
+            {canDraw && (
+              <span className="absolute -bottom-9 text-[11px] font-semibold text-amber-200 opacity-0 group-hover:opacity-100 transition-opacity">
+                Draw a card
+              </span>
             )}
-          </div>
+          </button>
 
-          {/* Table: discard + draw piles */}
-          <div className="flex items-center justify-center gap-8">
-            <button
-              type="button"
-              onClick={requestDraw}
-              disabled={!canDraw || isSending}
-              className={`flex flex-col items-center gap-1 ${
-                canDraw ? 'cursor-pointer' : 'cursor-default'
-              }`}
-              aria-label="Draw pile"
-            >
-              <div
-                className={`w-14 h-20 sm:w-16 sm:h-24 rounded-xl bg-gradient-to-br from-violet-500 to-violet-700 border-2 border-white/40 shadow-lg relative transition-transform ${
-                  canDraw ? 'hover:-translate-y-2 hover:shadow-2xl' : ''
-                }`}
-              >
-                <div className="absolute inset-2 rounded-lg bg-white/20 border border-white/30 flex items-center justify-center text-white text-xs font-bold">
-                  DRAW
+          {/* Discard pile */}
+          <div className="relative flex flex-col items-center">
+            <div className="relative w-24 h-36 sm:w-28 sm:h-40">
+              {uno.DiscardPile.slice(0, -1).slice(-2).map((c, i) => (
+                <div
+                  key={`under-${i}`}
+                  className="absolute inset-0 opacity-45"
+                  style={{ transform: `rotate(${(i - 1) * 7}deg) translate(${(i - 1) * 4}px, ${(i - 1) * 3}px)` }}
+                >
+                  <CardFace card={c} size="pile" />
                 </div>
-              </div>
-              <span className="text-xs text-gray-500">{uno.DrawPile?.Count ?? 0} left</span>
-            </button>
-
-            <div className="flex flex-col items-center">
-              {topCard ? (
-                <CardFaceVisual card={topCard} />
-              ) : (
-                <div className="w-16 h-24 sm:w-20 sm:h-28 rounded-xl bg-gray-200 flex items-center justify-center text-gray-400">
-                  ?
+              ))}
+              {topCard && (
+                <div className="absolute inset-0" style={{ transform: `rotate(${discardTilt}deg)` }}>
+                  <CardFace card={topCard} size="pile" />
                 </div>
               )}
-              <span className="mt-1 text-xs text-gray-500">Discard pile</span>
+              {uno.PendingDrawCount > 0 && (
+                <div className="absolute -top-3 -right-4 z-10 animate-bounce rounded-full bg-rose-600 px-2.5 py-1 text-xs font-black text-white shadow-lg ring-2 ring-white/70">
+                  +{uno.PendingDrawCount}
+                </div>
+              )}
             </div>
+            <span className="mt-2 text-[11px] font-medium text-white/50">Discard pile</span>
           </div>
         </div>
 
-        {/* Your hand */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between w-full">
-              <CardTitle>Your hand ({myCards.length})</CardTitle>
-              {isMyTurn && myCards.length === 1 && (
-                <span className="text-sm font-semibold text-amber-500">Uno!</span>
-              )}
+        {/* Active color + direction */}
+        <div className="relative mt-5 flex items-center justify-center gap-3">
+          <div className="flex items-center gap-2 rounded-full bg-black/30 px-4 py-1.5 backdrop-blur-sm">
+            <span
+              className="h-4 w-4 rounded-full border-2 border-white shadow"
+              style={{ background: CARD_HEX[activeColor] ?? CARD_HEX[0] }}
+              aria-label={`Active color ${activeColor}`}
+            />
+            <span className="text-xs font-semibold text-white/80 capitalize">{colorName(activeColor)}</span>
+          </div>
+          <div
+            className="flex items-center gap-1.5 rounded-full bg-black/30 px-3 py-1.5 backdrop-blur-sm"
+            title={clockwise ? 'Play direction: clockwise' : 'Play direction: counter-clockwise'}
+          >
+            <ArrowPathIcon className={`h-3.5 w-3.5 text-white/70 ${clockwise ? '' : '-scale-x-100'}`} />
+            <span className="text-xs font-medium text-white/60">{clockwise ? 'CW' : 'CCW'}</span>
+          </div>
+          {gameClockLabel && (
+            <div
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 backdrop-blur-sm ${
+                gameClockCritical ? 'bg-rose-600/80' : 'bg-black/30'
+              }`}
+              title="Time left before the game is force-finished (fewest cards wins)"
+            >
+              <ClockIcon className={`h-3.5 w-3.5 ${gameClockCritical ? 'text-white' : 'text-white/70'}`} />
+              <span className={`text-xs font-bold tabular-nums ${gameClockCritical ? 'text-white' : 'text-white/60'}`}>
+                {gameClockLabel}
+              </span>
             </div>
-          </CardHeader>
-          <CardContent>
-            {handZero ? (
-              <p className="text-center text-gray-500 py-6">No cards in hand.</p>
-            ) : (
-              <div className="flex flex-wrap justify-center items-end pt-6 pb-2 px-2 min-h-[7.5rem]">
-                {myCards.map((card, idx) => (
-                  <div key={idx} className="-ml-8 first:ml-0 z-10 hover:z-20 transition-all">
-                    <UnoCardFace
-                      card={card}
-                      clickable={canPlaceOnPile && isMyTurn && !isSending}
-                      playable={isPlayable(card, uno)}
-                      onClick={() => handleCardClick(card)}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </div>
 
-      {/* Right rail: status + actions + log */}
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Turn</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {state.isOver ? (
-              <p className="text-sm text-gray-600">Game over.</p>
-            ) : isMyTurn ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-emerald-700">
-                  <PlayIcon className="w-4 h-4" />
-                  <span className="font-medium">Your turn</span>
-                </div>
-                <TurnTimer
-                  seconds={remainingSeconds}
-                  fraction={timerFraction}
-                  critical={timerCritical}
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600">Waiting for {activePlayerName}...</p>
-                <TurnTimer
-                  seconds={remainingSeconds}
-                  fraction={timerFraction}
-                  critical={timerCritical}
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {!isMyTurn && !state.isOver && (
-              <p className="text-sm text-gray-500 text-center py-4">Take your turn when it arrives.</p>
-            )}
-
-            {pendingDraw && (
+        {/* Pending draw banner */}
+        {pendingDraw && (
+          <div className="relative mt-5 mx-auto max-w-md rounded-2xl border border-rose-300/30 bg-rose-950/60 p-3 text-center backdrop-blur-sm">
+            {challengeResolved ? (
               <>
-                {isWildDrawFour && uno.PendingDrawCount === 4 && (
-                  <Button variant="secondary" className="w-full" onClick={challenge} isLoading={isSending}>
-                    Challenge Wild Draw 4
-                  </Button>
+                <p className="text-sm font-semibold text-rose-100">
+                  Challenge successful - {offenderName} must draw {uno.PendingDrawCount}
+                </p>
+                <p className="mt-0.5 text-[11px] text-rose-200/70">Take the cards into the offender's hand, then play or draw.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-rose-100">
+                  You must draw {uno.PendingDrawCount} card{uno.PendingDrawCount > 1 ? 's' : ''}
+                  {isWildDrawFour && uno.PendingDrawCount === 4 ? ' or challenge the Wild Draw Four' : ''}
+                </p>
+                {!isWildDrawFour && (
+                  <p className="mt-0.5 text-[11px] text-rose-200/70">Playing a card is not allowed while a draw penalty is pending.</p>
                 )}
-                <Button variant="danger" className="w-full" onClick={acceptDraw} isLoading={isSending}>
-                  Accept draw {uno.PendingDrawCount}
-                </Button>
               </>
             )}
-
-            {canDraw && (
-              <Button variant="primary" className="w-full" onClick={requestDraw} isLoading={isSending}>
-                Draw card
-              </Button>
-            )}
-
-            {canCallUno && (
-              <Button variant="secondary" className="w-full" onClick={callUno} isLoading={isSending}>
-                Call Uno!
-              </Button>
-            )}
-
-            {!isMyTurn && uno.NextPlayerSkipped && (
-              <p className="text-xs text-center text-gray-400">Next player is skipped.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Game log</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="max-h-72 overflow-y-auto space-y-1.5">
-              {uno.EventLog.length === 0 ? (
-                <li className="text-sm text-gray-400 text-center py-4">No events yet</li>
-              ) : (
-                uno.EventLog.slice(-40).reverse().map((entry, i) => (
-                  <li key={`${uno.EventLog.length - i}`} className="text-xs text-gray-600 p-2 bg-gray-50 rounded">
-                    {entry}
-                  </li>
-                ))
+            <div className="mt-2 flex justify-center gap-2">
+              {canChallenge && (
+                <Button size="sm" onClick={() => onAction('ChallengeWildDrawFour', {})} isLoading={isSending}>
+                  Challenge +4
+                </Button>
               )}
-            </ul>
-          </CardContent>
-        </Card>
+              <Button size="sm" onClick={() => onAction('AcceptDraw', {})} isLoading={isSending}>
+                {challengeResolved ? 'Apply draw & continue' : 'Accept draw'}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* ============================ STATUS STRIP ============================ */}
+      <div className="rounded-2xl bg-white border border-gray-200 px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2 shadow-sm">
+        {state.isOver ? (
+          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500">
+            <TrophyIcon className="h-4 w-4 text-amber-400" /> Game over.
+          </span>
+        ) : isMyTurn ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
+            <PlayIcon className="h-4 w-4" /> Your turn
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-sm text-gray-600">
+            <ClockIcon className="h-4 w-4 text-gray-400" />
+            Waiting for <strong className="mx-0.5">{activePlayerName}</strong>
+          </span>
+        )}
+
+        {!state.isOver && <TimerRing seconds={remainingSeconds} fraction={timerFraction} critical={timerCritical} />}
+
+        <div className="flex-1" />
+
+        {canCallUno && (
+          <Button size="sm" variant="secondary" onClick={() => onAction('CallUno', {})} isLoading={isSending}>
+            Call UNO!
+          </Button>
+        )}
+        {canPass && (
+          <Button size="sm" variant="secondary" onClick={() => onAction('Pass', {})} isLoading={isSending}>
+            Pass
+          </Button>
+        )}
+        {meIndex >= 0 && !state.isOver && (
+          <span className="text-xs font-medium text-gray-400 tabular-nums">You: {myCards.length} cards</span>
+        )}
+      </div>
+
+      {/* ============================ HAND ============================ */}
+      <div className="rounded-2xl bg-white border border-gray-200 px-4 pt-5 pb-4 shadow-sm">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Your hand {playableCount > 0 && isMyTurn && (
+              <span className="ml-1 normal-case text-emerald-600">- {playableCount} playable</span>
+            )}
+          </p>
+          {isMyTurn && playableCount === 0 && uno.PendingDrawCount === 0 && !state.isOver && (
+            <p className="text-xs text-gray-400">{uno.DrawnThisTurn ? 'Drew a card - play it if it fits, or pass' : 'No playable card - draw from the pile'}</p>
+          )}
+        </div>
+        <div className="overflow-x-auto pb-3 pt-10">
+          {myCards.length === 0 ? (
+            <p className="text-center text-gray-400 py-8 text-sm">No cards in hand.</p>
+          ) : (
+            <div className="flex w-max mx-auto items-end px-6">
+              {myCards.map((card, idx) => {
+                const n = myCards.length
+                const mid = (n - 1) / 2
+                const rot = (idx - mid) * 2.5
+                const arc = Math.min(Math.abs(idx - mid) * 5, 24)
+                const overlap = n <= 6 ? 14 : n <= 9 ? 30 : 42
+                const playable = uno.PendingDrawCount === 0 && isPlayable(card, uno)
+                return (
+                  <div
+                    key={`${idx}-${card.Color}-${card.Value}`}
+                    className="relative hover:z-50"
+                    style={{
+                      marginLeft: idx === 0 ? 0 : `-${overlap}px`,
+                      transform: `rotate(${rot}deg)`,
+                      marginTop: arc,
+                      zIndex: idx,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      aria-label={`Play ${cardValueLabel(card.Value)}`}
+                      disabled={!isMyTurn || isSending || !playable}
+                      onClick={() => handleCardClick(card)}
+                      className={`relative block rounded-xl transition-all duration-150 ${
+                        isMyTurn && playable
+                          ? 'cursor-pointer hover:-translate-y-4 hover:scale-105 shadow-[0_0_14px_rgba(16,185,129,0.55)] ring-2 ring-emerald-300'
+                          : ''
+                      } ${isMyTurn && !playable ? 'opacity-40 saturate-50 cursor-not-allowed' : ''} ${
+                        !isMyTurn && !state.isOver ? 'opacity-80 cursor-default' : ''
+                      }`}
+                    >
+                      <CardFace card={card} size="hand" />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        {isMyTurn && !state.isOver && playableCount > 0 && (
+          <p className="text-center text-[11px] text-gray-400 -mt-1">
+            Click a glowing card to play it
+          </p>
+        )}
+      </div>
+
+      {/* ============================ GAME LOG ============================ */}
+      <details className="group rounded-2xl bg-white border border-gray-200 shadow-sm open:pb-2">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 select-none">
+          <span className="text-sm font-semibold text-gray-700">Game log</span>
+          <span className="text-xs text-gray-400 group-open:hidden">show</span>
+          <span className="hidden text-xs text-gray-400 group-open:inline">hide</span>
+        </summary>
+        <ul className="max-h-64 overflow-y-auto space-y-1 px-4 pb-3">
+          {uno.EventLog.length === 0 ? (
+            <li className="text-sm text-gray-400 text-center py-4">No events yet</li>
+          ) : (
+            uno.EventLog.slice(-40).reverse().map((entry, i) => (
+              <li key={`${uno.EventLog.length - i}`} className="flex items-start gap-2 text-xs text-gray-600">
+                <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400" />
+                <span>{entry}</span>
+              </li>
+            ))
+          )}
+        </ul>
+      </details>
+
       {/* Wild color picker */}
-      <Modal isOpen={!!colorForCard} onClose={() => setColorForCard(null)} title="Choose a color">
-        <p className="text-sm text-gray-600 mb-4">Wild card played — pick the color to continue.</p>
-        <div className="grid grid-cols-2 gap-3">
+      <Modal isOpen={!!wildPick} onClose={() => setWildPick(null)} title="Choose a color">
+        <div className="flex items-center gap-4 mb-4">
+          {wildPick && <CardFace card={wildPick} size="pile" />}
+          <p className="text-sm text-gray-600">
+            Play this wild card and pick the color to continue.
+          </p>
+        </div>
+        <div className="grid grid-cols-4 gap-2 sm:gap-3">
           {COLOR_CHOICES.map((choice) => (
-            <Button
+            <button
               key={choice.id}
-              variant="secondary"
-              className={`${choice.swatch} text-white hover:opacity-90 w-full`}
-              onClick={() => {
-                if (colorForCard) playCard(colorForCard, choice.id)
-                setColorForCard(null)
-              }}
+              type="button"
+              aria-label={`Choose ${choice.name}`}
               disabled={isSending}
+              onClick={() => {
+                if (wildPick) playCard(wildPick, choice.id)
+                setWildPick(null)
+              }}
+              className={`group flex flex-col items-center gap-1 rounded-xl ${choice.swatch} p-0.5 shadow-md transition-transform hover:scale-105 hover:shadow-lg disabled:opacity-50`}
             >
-              {choice.name}
-            </Button>
+              <span className="h-12 w-full rounded-lg sm:h-14" />
+              <span className="pb-1 text-[11px] font-bold text-white drop-shadow">{choice.name}</span>
+            </button>
           ))}
         </div>
       </Modal>
@@ -357,17 +450,32 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
           <Button variant="secondary" className="flex-1" onClick={() => setConfirmDraw(false)}>
             Cancel
           </Button>
-          <Button variant="primary" className="flex-1" onClick={confirmDrawAction} isLoading={isSending}>
+          <Button
+            variant="primary"
+            className="flex-1"
+            isLoading={isSending}
+            onClick={() => {
+              setConfirmDraw(false)
+              onAction('DrawCard', { Count: 1 })
+            }}
+          >
             Draw card
           </Button>
         </div>
       </Modal>
 
-      {/* Winner overlay */}
-      <Modal isOpen={state.isOver && !!winnerName} onClose={() => {}} title="Game over">
+      {/* Winner / draw overlay */}
+      <Modal isOpen={state.isOver && (!!winnerName || !!winnerId)} onClose={() => {}} title="Game over">
         <div className="text-center py-4">
           <TrophyIcon className="w-12 h-12 mx-auto text-amber-400" />
-          <p className="mt-3 text-lg font-semibold text-gray-900">{winnerName} wins!</p>
+          <p className="mt-3 text-lg font-semibold text-gray-900">
+            {winnerId ? `${winnerName} wins!` : "It's a tie!"}
+          </p>
+          {!winnerId && (
+            <p className="mt-1 text-sm text-gray-600">
+              The time limit was reached and players had the same number of cards.
+            </p>
+          )}
           <div className="mt-4">
             <Button variant="primary" asChild>
               <a href="/lobby">Back to Lobby</a>
@@ -393,59 +501,137 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
   )
 }
 
-interface UnoCardFaceProps {
-  card: UnoCard
-  clickable: boolean
-  playable: boolean
-  onClick: () => void
+/* ============================ CARD VISUALS ============================ */
+
+type CardSize = 'hand' | 'pile'
+
+function colorName(id: number): string {
+  return ['Red', 'Blue', 'Green', 'Yellow', 'Wild'][id] ?? 'Red'
 }
 
-function UnoCardFace({ card, clickable, playable, onClick }: UnoCardFaceProps) {
+/**
+ * A real UNO-style card face: colored body, white central oval with the big
+ * value, and small corner glyphs.
+ */
+function CardFace({ card, size }: { card: UnoCard; size: CardSize }) {
+  const wild = isWild(card)
+  const hex = CARD_HEX[card.Color] ?? CARD_HEX[0]
+  const glyph = valueGlyph(card.Value)
+  const dims = size === 'hand'
+    ? 'w-20 h-28 sm:w-24 sm:h-32'
+    : 'w-24 h-36 sm:w-28 sm:h-40'
+  const centerText = size === 'hand' ? 'text-3xl sm:text-4xl' : 'text-4xl sm:text-5xl'
+  const cornerText = size === 'hand' ? 'text-[10px] sm:text-xs' : 'text-xs sm:text-sm'
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!clickable || !playable}
-      aria-label={`Play ${cardValueLabel(card.Value)}`}
-      className={`
-        w-16 h-24 sm:w-20 sm:h-28 rounded-xl border-2 border-white/30 shadow-md transition-all
-        ${clickable && playable
-          ? 'cursor-pointer hover:-translate-y-3 hover:shadow-2xl ring-2 ring-emerald-300 ring-offset-2 ring-offset-slate-100'
-          : clickable
-            ? 'cursor-not-allowed opacity-40'
-            : 'opacity-90'}
-      `}
+    <div
+      className={`${dims} relative select-none rounded-xl border-[3px] border-white shadow-lg overflow-hidden`}
+      style={{ background: wild ? undefined : `linear-gradient(145deg, ${hex}, ${shade(hex)})` }}
     >
-      <CardFaceVisual card={card} />
-    </button>
+      {wild && <div className="absolute inset-0" style={WILD_GRADIENT} />}
+      {/* sheen */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/15 to-black/10" />
+
+      {/* white central oval */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="flex h-[62%] w-[82%] -rotate-[28deg] items-center justify-center rounded-[50%] bg-white shadow-sm">
+          <div className="rotate-[28deg] text-center leading-none">
+            {wild && card.Value === 13 ? (
+              <div className="grid h-7 w-7 grid-cols-2 gap-px overflow-hidden rounded-full ring-2 ring-gray-800 sm:h-9 sm:w-9">
+                <span className="bg-red-600" /><span className="bg-blue-600" />
+                <span className="bg-yellow-400" /><span className="bg-green-600" />
+              </div>
+            ) : (
+              <span
+                className={`${centerText} font-black tracking-tighter`}
+                style={{ color: wild ? '#111827' : hex, textShadow: '0 1px 0 rgba(0,0,0,0.08)' }}
+              >
+                {glyph}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* corner glyphs */}
+      <span
+        className={`${cornerText} absolute left-1 top-0.5 font-black text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]`}
+      >
+        {wild && card.Value === 13 ? 'W' : glyph}
+      </span>
+      <span
+        className={`${cornerText} absolute bottom-0.5 right-1 rotate-180 font-black text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]`}
+      >
+        {wild && card.Value === 13 ? 'W' : glyph}
+      </span>
+    </div>
   )
 }
 
-function CardFaceVisual({ card }: { card: UnoCard }) {
-  const color = cardColor(card.Color)
-  const label = cardValueLabel(card.Value)
+/** Darkens a hex color for the card body gradient. */
+function shade(hex: string): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = Math.max(0, ((n >> 16) & 255) - 60)
+  const g = Math.max(0, ((n >> 8) & 255) - 60)
+  const b = Math.max(0, (n & 255) - 60)
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
+}
+
+/** The back of a UNO card, used for the draw pile stack. */
+function CardBack({ className = '', size }: { className?: string; size: CardSize }) {
   return (
-    <div className={`w-16 h-24 sm:w-20 sm:h-28 rounded-xl border-2 border-white/30 shadow-md overflow-hidden flex items-center justify-center ${color.gradient} ${color.text}`}>
-      <div className="rounded-lg bg-white/20 border border-white/40 w-[calc(100%-0.75rem)] h-[calc(100%-0.75rem)] flex items-center justify-center">
-        <span className="font-black text-lg sm:text-2xl">{label}</span>
+    <div
+      className={`${size === 'hand' ? 'w-20 h-28 sm:w-24 sm:h-32' : 'w-24 h-36 sm:w-28 sm:h-40'} relative rounded-xl border-[3px] border-white shadow-lg overflow-hidden bg-gradient-to-br from-red-500 to-red-800 ${className}`}
+    >
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="flex h-[62%] w-[82%] -rotate-[28deg] items-center justify-center rounded-[50%] bg-white">
+          <span className="rotate-[28deg] text-lg sm:text-xl font-black italic tracking-tighter text-red-600">
+            UNO
+          </span>
+        </div>
       </div>
     </div>
   )
 }
 
-function TurnTimer({ seconds, fraction, critical }: { seconds: number; fraction: number; critical: boolean }) {
-  if (seconds <= 0) return null
+/** Small card-stack icon with count for opponent seats. */
+function MiniCardStack({ count }: { count: number }) {
   return (
-    <div className="flex items-center gap-2">
-      <ClockIcon className={`w-4 h-4 ${critical ? 'text-red-500' : 'text-gray-500'}`} />
-      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${critical ? 'bg-red-500' : 'bg-emerald-500'}`}
-          style={{ width: `${Math.round(fraction * 100)}%` }}
+    <span className="inline-flex items-center gap-1">
+      <span className="relative inline-block h-4 w-3">
+        <span className="absolute inset-0 translate-x-[2px] translate-y-[1px] rounded-[2px] border border-white/60 bg-red-500/80" />
+        <span className="absolute inset-0 rounded-[2px] border border-white bg-red-400" />
+      </span>
+      <span className="text-[10px] font-bold text-white/80 tabular-nums">{count}</span>
+    </span>
+  )
+}
+
+/* ============================ STATUS WIDGETS ============================ */
+
+/** Circular countdown ring for the current turn. */
+function TimerRing({ seconds, fraction, critical }: { seconds: number; fraction: number; critical: boolean }) {
+  const R = 22
+  const C = 2 * Math.PI * R
+  return (
+    <div className="relative h-12 w-12 flex-shrink-0" title={`${seconds}s left this turn`}>
+      <svg viewBox="0 0 56 56" className="h-12 w-12 -rotate-90">
+        <circle cx="28" cy="28" r={R} fill="none" strokeWidth="5" className="stroke-gray-200" />
+        <circle
+          cx="28"
+          cy="28"
+          r={R}
+          fill="none"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray={C}
+          strokeDashoffset={C * (1 - fraction)}
+          className={critical ? 'stroke-red-500' : 'stroke-emerald-500'}
+          style={{ transition: 'stroke-dashoffset 0.25s linear' }}
         />
-      </div>
-      <span className={`text-sm font-semibold tabular-nums ${critical ? 'text-red-600' : 'text-gray-700'}`}>
-        {seconds}s
+      </svg>
+      <span className={`absolute inset-0 flex items-center justify-center text-sm font-bold tabular-nums ${critical ? 'text-red-600' : 'text-gray-700'}`}>
+        {seconds}
       </span>
     </div>
   )
