@@ -5,6 +5,7 @@ using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
 using BuildingBlocks.Infrastructure.CurrentUser;
 using BuildingBlocks.Infrastructure.Outbox;
+using BuildingBlocks.Domain.Localization;
 using Lobby.Application.Dtos;
 using Lobby.Application.Persistence;
 using Lobby.Application.Realtime;
@@ -52,7 +53,7 @@ public class CloseRoomCommandHandler : IRequestHandler<CloseRoomCommand, Result<
     {
         if (_currentUser.UserId is not { } hostId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var room = await _dbContext.Rooms
@@ -62,7 +63,7 @@ public class CloseRoomCommandHandler : IRequestHandler<CloseRoomCommand, Result<
 
         if (room.HostId != hostId)
         {
-            throw new UnauthorizedAccessException("Only the host can close the room.");
+            throw new UnauthorizedException(ErrorCodes.Lobby.OnlyHostClose);
         }
 
         room.Close();

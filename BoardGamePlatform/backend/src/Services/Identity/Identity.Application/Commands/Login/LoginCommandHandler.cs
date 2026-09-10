@@ -2,6 +2,7 @@ using AutoMapper;
 using BuildingBlocks.Application;
 using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
+using BuildingBlocks.Domain.Localization;
 using Identity.Application.Common;
 using Identity.Application.Dtos;
 using Identity.Application.Persistence;
@@ -63,12 +64,12 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResp
                 "Failed login attempt for {Identifier}",
                 identifier);
 
-            throw new UnauthorizedAccessException("Invalid email or password.");
+            throw new UnauthorizedException(ErrorCodes.Identity.InvalidCredentials);
         }
 
         if (!user.IsActive)
         {
-            throw new UnauthorizedAccessException("This account has been deactivated.");
+            throw new UnauthorizedException(ErrorCodes.Identity.AccountDeactivated);
         }
 
         user.RecordLogin();

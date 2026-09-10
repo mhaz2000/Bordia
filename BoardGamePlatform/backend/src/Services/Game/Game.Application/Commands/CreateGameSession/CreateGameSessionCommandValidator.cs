@@ -1,3 +1,4 @@
+using BuildingBlocks.Domain.Localization;
 using FluentValidation;
 
 namespace Game.Application.Commands.CreateGameSession;
@@ -9,26 +10,30 @@ public class CreateGameSessionCommandValidator : AbstractValidator<CreateGameSes
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="CreateGameSessionCommandValidator"/> class.
+    /// Validation failures carry catalog codes; the response middleware localizes them.
     /// </summary>
     public CreateGameSessionCommandValidator()
     {
         RuleFor(x => x.RoomId)
-            .NotEmpty();
+            .NotEmpty()
+            .WithMessage(ErrorCodes.Validation.RoomIdRequired);
 
         RuleFor(x => x.GameType)
-            .NotEmpty();
+            .NotEmpty()
+            .WithMessage(ErrorCodes.Validation.GameTypeRequired);
 
         RuleFor(x => x.Players)
             .NotEmpty()
+            .WithMessage(ErrorCodes.Validation.PlayersRequired)
             .Must(p => p.Count >= 2)
-            .WithMessage("At least two players are required.");
+            .WithMessage(ErrorCodes.Validation.PlayersMinTwo);
 
         RuleForEach(x => x.Players)
             .Must(p => p.UserId != Guid.Empty)
-            .WithMessage("Every player must have a user id.")
+            .WithMessage(ErrorCodes.Validation.PlayerUserIdRequired)
             .Must(p => !string.IsNullOrWhiteSpace(p.DisplayName))
-            .WithMessage("Every player must have a display name.")
+            .WithMessage(ErrorCodes.Validation.PlayerDisplayNameRequired)
             .Must((command, player) => command.Players.Count(p => p.UserId == player.UserId) == 1)
-            .WithMessage("Duplicate players are not allowed.");
+            .WithMessage(ErrorCodes.Validation.PlayerDuplicate);
     }
 }

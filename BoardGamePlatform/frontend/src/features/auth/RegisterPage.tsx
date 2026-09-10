@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/shared/hooks/useAuth'
+import { useI18n } from '@/i18n/I18nProvider'
 import { Button } from '@/shared/components/Button'
 import { Input } from '@/shared/components/Input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
+import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
 
 export function RegisterPage() {
   const navigate = useNavigate()
   const { register, isRegistering, isLoading } = useAuth()
+  const { t } = useI18n()
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
@@ -19,17 +22,17 @@ export function RegisterPage() {
     setError('')
 
     if (!email.trim() || !displayName.trim() || !password) {
-      setError('Please fill in all fields.')
+      setError(t('auth.fillAllFields'))
       return
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('auth.passwordsNoMatch'))
       return
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters')
+      setError(t('auth.passwordShort'))
       return
     }
 
@@ -37,7 +40,7 @@ export function RegisterPage() {
       await register({ email, password, displayName })
       navigate('/lobby')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
+      setError(err instanceof Error ? err.message : t('auth.registerFailed'))
     }
   }
 
@@ -53,8 +56,11 @@ export function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
       <Card className="w-full max-w-md" padding="lg">
         <CardHeader>
-          <CardTitle className="text-2xl text-center">Create Account</CardTitle>
-          <p className="text-center text-gray-600 mt-2">Join the board game platform</p>
+          <div className="flex justify-end mb-2">
+            <LanguageSwitcher />
+          </div>
+          <CardTitle className="text-2xl text-center">{t('auth.createAccount')}</CardTitle>
+          <p className="text-center text-gray-600 mt-2">{t('auth.createAccountSubtitle')}</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
@@ -64,35 +70,35 @@ export function RegisterPage() {
               </div>
             )}
             <Input
-              label="Display Name"
+              label={t('auth.displayName')}
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               required
               autoComplete="name"
-              placeholder="Your name"
+              placeholder={t('auth.displayNamePlaceholder')}
             />
             <Input
-              label="Email"
+              label={t('auth.email')}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              placeholder="you@example.com"
+              placeholder={t('auth.emailPlaceholder')}
             />
             <Input
-              label="Password"
+              label={t('auth.password')}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="new-password"
               placeholder="••••••••"
-              helperText="At least 8 characters"
+              helperText={t('auth.atLeast8')}
             />
             <Input
-              label="Confirm Password"
+              label={t('auth.confirmPassword')}
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -101,14 +107,14 @@ export function RegisterPage() {
               placeholder="••••••••"
             />
             <Button type="submit" className="w-full" isLoading={isRegistering} size="lg">
-              Create Account
+              {t('auth.createAccount')}
             </Button>
           </form>
           <div className="mt-6 text-center">
             <p className="text-gray-600">
-              Already have an account?{' '}
+              {t('auth.haveAccount')}{' '}
               <Link to="/login" className="text-blue-600 hover:underline font-medium">
-                Sign In
+                {t('common.signIn')}
               </Link>
             </p>
           </div>

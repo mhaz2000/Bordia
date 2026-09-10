@@ -94,8 +94,14 @@ public class UnoActionResult
     /// <summary>Whether the action was valid.</summary>
     public bool IsValid { get; set; }
 
-    /// <summary>Error message if invalid.</summary>
+    /// <summary>Error message or code when invalid.</summary>
     public string? Error { get; set; }
+
+    /// <summary>Stable error code for localization (same value as Error).</summary>
+    public string? ErrorCode { get; set; }
+
+    /// <summary>Positional localization arguments for the error code.</summary>
+    public object?[] ErrorArgs { get; set; } = Array.Empty<object?>();
 
     /// <summary>The updated game state.</summary>
     public UnoGameState? NewState { get; set; }
@@ -125,7 +131,7 @@ public class UnoActionResult
     public static UnoActionResult Success(UnoGameState state, List<string>? events = null, bool gameEnded = false, int? winnerIndex = null, Card? drawnCard = null, bool canPlayDrawnCard = false, bool wasChallenged = false, bool challengeSuccessful = false)
         => new() { IsValid = true, NewState = state, Events = events ?? new(), GameEnded = gameEnded, WinnerIndex = winnerIndex, DrawnCard = drawnCard, CanPlayDrawnCard = canPlayDrawnCard, WasChallenged = wasChallenged, ChallengeSuccessful = challengeSuccessful };
 
-    /// <summary>Creates a failure result.</summary>
-    public static UnoActionResult Failure(string error)
-        => new() { IsValid = false, Error = error };
+    /// <summary>Creates a failure result with a stable error code + args.</summary>
+    public static UnoActionResult Failure(string code, params object?[] args)
+        => new() { IsValid = false, Error = code, ErrorCode = code, ErrorArgs = args };
 }

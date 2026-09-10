@@ -6,4 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- WithCulture=false keeps these in the main assembly; otherwise the SDK
+         reads errors.en.json / errors.fa.json as satellite (culture) resources. -->
+    <EmbeddedResource Include="Localization\errors.*.json" WithCulture="false" />
+  </ItemGroup>
+
 </Project>

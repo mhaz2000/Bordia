@@ -2,6 +2,7 @@ using BuildingBlocks.Application;
 using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
 using BuildingBlocks.Infrastructure.CurrentUser;
+using BuildingBlocks.Domain.Localization;
 using Game.Application.Persistence;
 using Game.Application.Realtime;
 using Game.Domain.Entities;
@@ -43,7 +44,7 @@ public class ReconnectPlayerCommandHandler : IRequestHandler<ReconnectPlayerComm
     {
         if (_currentUser.UserId is not { } userId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var session = await _dbContext.GameSessions
@@ -52,7 +53,7 @@ public class ReconnectPlayerCommandHandler : IRequestHandler<ReconnectPlayerComm
             ?? throw new NotFoundException(nameof(GameSession), request.SessionId);
 
         var seat = session.GetPlayer(userId)
-            ?? throw new UnauthorizedAccessException("You are not a player in this game.");
+            ?? throw new UnauthorizedException(ErrorCodes.Game.NotAPlayer);
 
         // Single-tab enforcement: if the seat already had an active connection on a
         // DIFFERENT connection id, that tab is superseded and must be kicked after

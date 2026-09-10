@@ -3,6 +3,7 @@ using BuildingBlocks.Application;
 using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
 using BuildingBlocks.Infrastructure.CurrentUser;
+using BuildingBlocks.Domain.Localization;
 using Lobby.Application.Dtos;
 using Lobby.Application.Persistence;
 using Lobby.Application.Realtime;
@@ -48,7 +49,7 @@ public class SetReadyCommandHandler : IRequestHandler<SetReadyCommand, Result<Lo
     {
         if (_currentUser.UserId is not { } userId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var room = await _dbContext.Rooms
@@ -58,11 +59,11 @@ public class SetReadyCommandHandler : IRequestHandler<SetReadyCommand, Result<Lo
 
         if (room.Status != RoomStatus.Waiting)
         {
-            throw new ConflictException("This room is no longer accepting players.");
+            throw new ConflictException(ErrorCodes.Lobby.RoomNotAccepting);
         }
 
         var player = room.GetPlayer(userId)
-            ?? throw new ConflictException("You are not a member of this room.");
+            ?? throw new ConflictException(ErrorCodes.Lobby.NotMember);
 
         room.ApplyReadyState(player.UserId, request.IsReady);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

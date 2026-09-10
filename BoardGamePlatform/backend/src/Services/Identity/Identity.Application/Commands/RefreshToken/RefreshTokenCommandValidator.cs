@@ -1,3 +1,4 @@
+using BuildingBlocks.Domain.Localization;
 using FluentValidation;
 
 namespace Identity.Application.Commands.RefreshToken;
@@ -9,10 +10,12 @@ public class RefreshTokenCommandValidator : AbstractValidator<RefreshTokenComman
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="RefreshTokenCommandValidator"/> class.
+    /// Validation failures carry catalog codes; the response middleware localizes them.
     /// </summary>
     public RefreshTokenCommandValidator()
     {
         RuleFor(x => x.RefreshToken)
-            .NotEmpty();
+            .NotEmpty()
+            .WithMessage(ErrorCodes.Validation.RefreshTokenRequired);
     }
 }

@@ -7,13 +7,24 @@ import { useCountdown, useNow } from '@/shared/hooks/useCountdown'
 import {
   CARD_HEX,
   COLOR_CHOICES,
-  cardValueLabel,
+  cardValueNameKey,
+  formatEvent,
   isPlayable,
   isWild,
   parseUnoState,
   type UnoCard,
 } from './uno'
 import { UnoCardVisual, UnoCardBackVisual } from '@/shared/components/UnoCardVisual'
+import { useI18n } from '@/i18n/I18nProvider'
+
+const COLOR_KEYS = ['colors.red', 'colors.blue', 'colors.green', 'colors.yellow', 'colors.wild'] as const
+
+/** Localized readable name of the discard top card for the pile's aria-label. */
+function topCardLabel(card: UnoCard, t: (key: string) => string): string {
+  const key = cardValueNameKey(card.Value)
+  if (key) return t(`games.UNO.cardNames.${key}`)
+  return isWild(card) ? t('colors.wild') : String(card.Value)
+}
 
 interface UnoGameViewProps {
   state: GameState
@@ -24,6 +35,7 @@ interface UnoGameViewProps {
 }
 
 export function UnoGameView({ state, session, userId, onAction, isSending }: UnoGameViewProps) {
+  const { t } = useI18n()
   const [wildPick, setWildPick] = useState<UnoCard | null>(null)
   const [confirmDraw, setConfirmDraw] = useState(false)
 
@@ -32,7 +44,7 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
   if (!uno) {
     return (
       <div className="rounded-3xl border border-emerald-200 bg-gradient-to-b from-emerald-900 to-emerald-950 py-20 text-center text-emerald-200/70">
-        Waiting for the first game state...
+        {t('uno.waitingState')}
       </div>
     )
   }
@@ -87,7 +99,7 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
   const winnerName =
     winnerId === undefined ? undefined
     : session.players.find((p) => p.userId === winnerId)?.displayName
-    ?? (winnerId === userId ? 'You' : 'Player')
+    ?? (winnerId === userId ? t('common.you') : t('common.players'))
 
   const playCard = (card: UnoCard, chosenColor?: number) => {
     const payload: Record<string, unknown> = { Card: { Color: card.Color, Value: card.Value } }
@@ -124,15 +136,15 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
   const currentPlayerUserId = state.players[uno.CurrentPlayerIndex]?.userId
   const activePlayerName =
     currentPlayerUserId === userId
-      ? 'You'
-      : session.players.find((p) => p.userId === currentPlayerUserId)?.displayName ?? 'Player'
+      ? t('common.you')
+      : session.players.find((p) => p.userId === currentPlayerUserId)?.displayName ?? t('common.players')
 
   const offenderName =
     uno.PendingDrawOffenderIndex == null
       ? null
       : uno.PendingDrawOffenderIndex === meIndex
-        ? 'you'
-        : session.players.find((p) => p.userId === state.players[uno.PendingDrawOffenderIndex!].userId)?.displayName ?? 'the offender'
+        ? t('common.you')
+        : session.players.find((p) => p.userId === state.players[uno.PendingDrawOffenderIndex!].userId)?.displayName ?? t('uno.offenderFallback')
 
   // Deterministic tilt for the discard top card so the pile looks "played".
   const discardTilt = ((uno.DiscardPile.length * 37) % 13) - 6
@@ -150,7 +162,7 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
             if (i === meIndex) return null
             const isTurn = uno.CurrentPlayerIndex === i
             const removed = eliminated.includes(i)
-            const displayName = session.players.find((p) => p.userId === player.userId)?.displayName ?? 'Player'
+            const displayName = session.players.find((p) => p.userId === player.userId)?.displayName ?? t('common.players')
             return (
               <div
                 key={player.userId}
@@ -168,12 +180,12 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-white max-w-24 truncate leading-tight">{displayName}</p>
                   {removed ? (
-                    <span className="text-[10px] font-medium text-white/50">Removed (AFK)</span>
+                    <span className="text-[10px] font-medium text-white/50">{t('uno.removedAfk')}</span>
                   ) : (
                     <div className="flex items-center gap-1.5">
                       <MiniCardStack count={handCounts[i]} />
                       {handCounts[i] === 1 && (
-                        <span className="text-[10px] font-black text-amber-300 animate-pulse">UNO!</span>
+                        <span className="text-[10px] font-black text-amber-300 animate-pulse">{t('uno.unoBadge')}</span>
                       )}
                     </div>
                   )}
@@ -190,7 +202,7 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
             type="button"
             onClick={() => setConfirmDraw(true)}
             disabled={!canDraw || isSending}
-            aria-label={`Draw pile, ${drawPileCount} cards left`}
+            aria-label={t('uno.drawPileAria', { n: drawPileCount })}
             className={`group relative flex flex-col items-center gap-2 ${canDraw ? 'cursor-pointer' : 'cursor-default'}`}
           >
             <div className="relative">
@@ -203,17 +215,20 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
               />
             </div>
             <span className="rounded-full bg-black/40 px-2.5 py-0.5 text-[11px] font-bold text-white tabular-nums">
-              {drawPileCount} left
+              {t('uno.cardsLeft', { n: drawPileCount })}
             </span>
             {canDraw && (
               <span className="absolute -bottom-9 text-[11px] font-semibold text-amber-200 opacity-0 group-hover:opacity-100 transition-opacity">
-                Draw a card
+                {t('uno.drawHover')}
               </span>
             )}
           </button>
 
           {/* Discard pile */}
-          <div className="relative flex flex-col items-center">
+          <div
+            className="relative flex flex-col items-center"
+            aria-label={topCard ? t('uno.discardAria', { label: topCardLabel(topCard, t) }) : t('uno.discardPile')}
+          >
             <div className="relative w-24 h-36 sm:w-28 sm:h-40">
               {uno.DiscardPile.slice(0, -1).slice(-2).map((c, i) => (
                 <div
@@ -235,7 +250,7 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
                 </div>
               )}
             </div>
-            <span className="mt-2 text-[11px] font-medium text-white/50">Discard pile</span>
+            <span className="mt-2 text-[11px] font-medium text-white/50">{t('uno.discardPile')}</span>
           </div>
         </div>
 
@@ -245,23 +260,23 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
             <span
               className="h-4 w-4 rounded-full border-2 border-white shadow"
               style={{ background: CARD_HEX[activeColor] ?? CARD_HEX[0] }}
-              aria-label={`Active color ${activeColor}`}
+              aria-label={t('uno.activeColor', { name: colorNameLocalized(activeColor, t) })}
             />
-            <span className="text-xs font-semibold text-white/80 capitalize">{colorName(activeColor)}</span>
+            <span className="text-xs font-semibold text-white/80">{colorNameLocalized(activeColor, t)}</span>
           </div>
           <div
             className="flex items-center gap-1.5 rounded-full bg-black/30 px-3 py-1.5 backdrop-blur-sm"
-            title={clockwise ? 'Play direction: clockwise' : 'Play direction: counter-clockwise'}
+            title={clockwise ? t('uno.clockwiseTitle') : t('uno.counterClockwiseTitle')}
           >
             <ArrowPathIcon className={`h-3.5 w-3.5 text-white/70 ${clockwise ? '' : '-scale-x-100'}`} />
-            <span className="text-xs font-medium text-white/60">{clockwise ? 'CW' : 'CCW'}</span>
+            <span className="text-xs font-medium text-white/60">{clockwise ? t('uno.clockwise') : t('uno.counterClockwise')}</span>
           </div>
           {gameClockLabel && (
             <div
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 backdrop-blur-sm ${
                 gameClockCritical ? 'bg-rose-600/80' : 'bg-black/30'
               }`}
-              title="Time left before the game is force-finished (fewest cards wins)"
+              title={t('uno.gameClockTitle')}
             >
               <ClockIcon className={`h-3.5 w-3.5 ${gameClockCritical ? 'text-white' : 'text-white/70'}`} />
               <span className={`text-xs font-bold tabular-nums ${gameClockCritical ? 'text-white' : 'text-white/60'}`}>
@@ -277,29 +292,29 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
             {challengeResolved ? (
               <>
                 <p className="text-sm font-semibold text-rose-100">
-                  Challenge successful - {offenderName} must draw {uno.PendingDrawCount}
+                  {t('uno.challengeSuccessBanner', { offender: offenderName ?? '', n: uno.PendingDrawCount })}
                 </p>
-                <p className="mt-0.5 text-[11px] text-rose-200/70">Take the cards into the offender's hand, then play or draw.</p>
+                <p className="mt-0.5 text-[11px] text-rose-200/70">{t('uno.challengeResolvedDetail')}</p>
               </>
             ) : (
               <>
                 <p className="text-sm font-semibold text-rose-100">
-                  You must draw {uno.PendingDrawCount} card{uno.PendingDrawCount > 1 ? 's' : ''}
-                  {isWildDrawFour && uno.PendingDrawCount === 4 ? ' or challenge the Wild Draw Four' : ''}
+                  {t('uno.mustDraw', { n: uno.PendingDrawCount })}
+                  {isWildDrawFour && uno.PendingDrawCount === 4 ? t('uno.orChallenge') : ''}
                 </p>
                 {!isWildDrawFour && (
-                  <p className="mt-0.5 text-[11px] text-rose-200/70">Playing a card is not allowed while a draw penalty is pending.</p>
+                  <p className="mt-0.5 text-[11px] text-rose-200/70">{t('uno.playNotAllowed')}</p>
                 )}
               </>
             )}
             <div className="mt-2 flex justify-center gap-2">
               {canChallenge && (
                 <Button size="sm" onClick={() => onAction('ChallengeWildDrawFour', {})} isLoading={isSending}>
-                  Challenge +4
+                  {t('uno.challenge4')}
                 </Button>
               )}
               <Button size="sm" onClick={() => onAction('AcceptDraw', {})} isLoading={isSending}>
-                {challengeResolved ? 'Apply draw & continue' : 'Accept draw'}
+                {challengeResolved ? t('uno.applyDraw') : t('uno.acceptDraw')}
               </Button>
             </div>
           </div>
@@ -310,16 +325,16 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
       <div className="rounded-2xl bg-white border border-gray-200 px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2 shadow-sm">
         {state.isOver ? (
           <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500">
-            <TrophyIcon className="h-4 w-4 text-amber-400" /> Game over.
+            <TrophyIcon className="h-4 w-4 text-amber-400" /> {t('uno.gameOver')}
           </span>
         ) : isMyTurn ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
-            <PlayIcon className="h-4 w-4" /> Your turn
+            <PlayIcon className="h-4 w-4" /> {t('uno.yourTurn')}
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-sm text-gray-600">
             <ClockIcon className="h-4 w-4 text-gray-400" />
-            Waiting for <strong className="mx-0.5">{activePlayerName}</strong>
+            {t('uno.waitingFor', { name: activePlayerName })}
           </span>
         )}
 
@@ -336,16 +351,16 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
 
         {canCallUno && (
           <Button size="sm" variant="secondary" onClick={() => onAction('CallUno', {})} isLoading={isSending}>
-            Call UNO!
+            {t('uno.callUno')}
           </Button>
         )}
         {canPass && (
           <Button size="sm" variant="secondary" onClick={() => onAction('Pass', {})} isLoading={isSending}>
-            Pass
+            {t('uno.pass')}
           </Button>
         )}
         {meIndex >= 0 && !state.isOver && (
-          <span className="text-xs font-medium text-gray-400 tabular-nums">You: {myCards.length} cards</span>
+          <span className="text-xs font-medium text-gray-400 tabular-nums">{t('uno.yourCards', { n: myCards.length })}</span>
         )}
       </div>
 
@@ -353,20 +368,20 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
       <div className="rounded-2xl bg-white border border-gray-200 px-4 pt-5 pb-4 shadow-sm">
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-            Your hand {playableCount > 0 && isMyTurn && (
-              <span className="ml-1 normal-case text-emerald-600">- {playableCount} playable</span>
+            {t('uno.yourHand')} {playableCount > 0 && isMyTurn && (
+              <span className="ms-1 normal-case text-emerald-600">- {t('uno.playableCount', { n: playableCount })}</span>
             )}
           </p>
           {isMyTurn && playableCount === 0 && !iOweDraw && !state.isOver && (
-            <p className="text-xs text-gray-400">{uno.DrawnThisTurn ? 'Drew a card - play it if it fits, or pass' : 'No playable card - draw from the pile'}</p>
+            <p className="text-xs text-gray-400">{uno.DrawnThisTurn ? t('uno.drewHint') : t('uno.noPlayable')}</p>
           )}
           {pendingDraw && (
-            <p className="text-xs font-semibold text-rose-600">You owe {uno.PendingDrawCount} card{uno.PendingDrawCount > 1 ? 's' : ''} - accept the draw first</p>
+            <p className="text-xs font-semibold text-rose-600">{t('uno.oweHint', { n: uno.PendingDrawCount })}</p>
           )}
         </div>
         <div className="overflow-x-auto pb-3 pt-10">
           {myCards.length === 0 ? (
-            <p className="text-center text-gray-400 py-8 text-sm">No cards in hand.</p>
+            <p className="text-center text-gray-400 py-8 text-sm">{t('uno.yourHand')}</p>
           ) : (
             <div className="flex w-max mx-auto items-end px-6">
               {myCards.map((card, idx) => {
@@ -381,7 +396,7 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
                     key={`${idx}-${card.Color}-${card.Value}`}
                     className="relative hover:z-50"
                     style={{
-                      marginLeft: idx === 0 ? 0 : `-${overlap}px`,
+                      marginInlineStart: idx === 0 ? 0 : `-${overlap}px`,
                       transform: `rotate(${rot}deg)`,
                       marginTop: arc,
                       zIndex: idx,
@@ -389,7 +404,7 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
                   >
                     <button
                       type="button"
-                      aria-label={`Play ${cardValueLabel(card.Value)}`}
+                      aria-label={t('uno.playAria', { value: cardValueNameKey(card.Value) ? t(`games.UNO.cardNames.${cardValueNameKey(card.Value)}`) : String(card.Value) })}
                       disabled={!isMyTurn || isSending || !playable}
                       onClick={() => handleCardClick(card)}
                       className={`relative block rounded-xl transition-all duration-150 ${
@@ -410,7 +425,7 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
         </div>
         {isMyTurn && !state.isOver && playableCount > 0 && (
           <p className="text-center text-[11px] text-gray-400 -mt-1">
-            Click a glowing card to play it
+            {t('uno.clickGlow')}
           </p>
         )}
       </div>
@@ -418,18 +433,18 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
       {/* ============================ GAME LOG ============================ */}
       <details className="group rounded-2xl bg-white border border-gray-200 shadow-sm open:pb-2">
         <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 select-none">
-          <span className="text-sm font-semibold text-gray-700">Game log</span>
-          <span className="text-xs text-gray-400 group-open:hidden">show</span>
-          <span className="hidden text-xs text-gray-400 group-open:inline">hide</span>
+          <span className="text-sm font-semibold text-gray-700">{t('uno.gameLog')}</span>
+          <span className="text-xs text-gray-400 group-open:hidden">{t('uno.show')}</span>
+          <span className="hidden text-xs text-gray-400 group-open:inline">{t('uno.hide')}</span>
         </summary>
         <ul className="max-h-64 overflow-y-auto space-y-1 px-4 pb-3">
           {uno.EventLog.length === 0 ? (
-            <li className="text-sm text-gray-400 text-center py-4">No events yet</li>
+            <li className="text-sm text-gray-400 text-center py-4">{t('uno.noEvents')}</li>
           ) : (
             uno.EventLog.slice(-40).reverse().map((entry, i) => (
               <li key={`${uno.EventLog.length - i}`} className="flex items-start gap-2 text-xs text-gray-600">
                 <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400" />
-                <span>{entry}</span>
+                <span>{formatEvent(entry, t)}</span>
               </li>
             ))
           )}
@@ -437,11 +452,11 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
       </details>
 
       {/* Wild color picker */}
-      <Modal isOpen={!!wildPick} onClose={() => setWildPick(null)} title="Choose a color">
+      <Modal isOpen={!!wildPick} onClose={() => setWildPick(null)} title={t('uno.chooseColor')}>
         <div className="flex items-center gap-4 mb-4">
           {wildPick && <UnoCardVisual card={wildPick} size="xl" />}
           <p className="text-sm text-gray-600">
-            Play this wild card and pick the color to continue.
+            {t('uno.pickColorDetail')}
           </p>
         </div>
         <div className="grid grid-cols-4 gap-2 sm:gap-3">
@@ -449,7 +464,7 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
             <button
               key={choice.id}
               type="button"
-              aria-label={`Choose ${choice.name}`}
+              aria-label={t('uno.chooseColorAria', { name: t(COLOR_KEYS[choice.id]) })}
               disabled={isSending}
               onClick={() => {
                 if (wildPick) playCard(wildPick, choice.id)
@@ -458,18 +473,18 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
               className={`group flex flex-col items-center gap-1 rounded-xl ${choice.swatch} p-0.5 shadow-md transition-transform hover:scale-105 hover:shadow-lg disabled:opacity-50`}
             >
               <span className="h-12 w-full rounded-lg sm:h-14" />
-              <span className="pb-1 text-[11px] font-bold text-white drop-shadow">{choice.name}</span>
+              <span className="pb-1 text-[11px] font-bold text-white drop-shadow">{t(COLOR_KEYS[choice.id])}</span>
             </button>
           ))}
         </div>
       </Modal>
 
       {/* Draw confirmation */}
-      <Modal isOpen={confirmDraw} onClose={() => setConfirmDraw(false)} title="Draw a card">
-        <p className="text-sm text-gray-600">Draw 1 card from the draw pile?</p>
+      <Modal isOpen={confirmDraw} onClose={() => setConfirmDraw(false)} title={t('uno.drawModalTitle')}>
+        <p className="text-sm text-gray-600">{t('uno.drawConfirm')}</p>
         <div className="flex gap-3 pt-4">
           <Button variant="secondary" className="flex-1" onClick={() => setConfirmDraw(false)}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             variant="primary"
@@ -480,40 +495,40 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
               onAction('DrawCard', { Count: 1 })
             }}
           >
-            Draw card
+            {t('uno.drawCard')}
           </Button>
         </div>
       </Modal>
 
       {/* Winner / draw overlay */}
-      <Modal isOpen={state.isOver && (!!winnerName || !!winnerId)} onClose={() => {}} title="Game over">
+      <Modal isOpen={state.isOver && (!!winnerName || !!winnerId)} onClose={() => {}} title={t('uno.gameOverModalTitle')}>
         <div className="text-center py-4">
           <TrophyIcon className="w-12 h-12 mx-auto text-amber-400" />
           <p className="mt-3 text-lg font-semibold text-gray-900">
-            {winnerId ? `${winnerName} wins!` : "It's a tie!"}
+            {winnerId ? t('uno.wins', { name: winnerName ?? '' }) : t('uno.tie')}
           </p>
           {!winnerId && (
             <p className="mt-1 text-sm text-gray-600">
-              The time limit was reached and players had the same number of cards.
+              {t('uno.tieDetail')}
             </p>
           )}
           <div className="mt-4">
             <Button variant="primary" asChild>
-              <a href="/lobby">Back to Lobby</a>
+              <a href="/lobby">{t('common.backToLobby')}</a>
             </Button>
           </div>
         </div>
       </Modal>
 
       {/* AFK removal overlay */}
-      <Modal isOpen={iWasRemoved} onClose={() => {}} title="Removed from game">
+      <Modal isOpen={iWasRemoved} onClose={() => {}} title={t('uno.removedFromGame')}>
         <div className="text-center py-4">
           <ClockIcon className="w-12 h-12 mx-auto text-amber-400" />
-          <p className="mt-3 text-lg font-semibold text-gray-900">You were inactive for too long</p>
-          <p className="mt-1 text-sm text-gray-600">You have been removed from this game.</p>
+          <p className="mt-3 text-lg font-semibold text-gray-900">{t('uno.afkTitle')}</p>
+          <p className="mt-1 text-sm text-gray-600">{t('uno.afkDetail')}</p>
           <div className="mt-4">
             <Button variant="primary" asChild>
-              <a href="/lobby">Back to Lobby</a>
+              <a href="/lobby">{t('common.backToLobby')}</a>
             </Button>
           </div>
         </div>
@@ -524,8 +539,8 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
 
 /* ============================ CARD VISUALS ============================ */
 
-function colorName(id: number): string {
-  return ['Red', 'Blue', 'Green', 'Yellow', 'Wild'][id] ?? 'Red'
+function colorNameLocalized(id: number, t: (k: string) => string): string {
+  return t(COLOR_KEYS[id] ?? 'colors.red')
 }
 
 /** Small card-stack icon with count for opponent seats. */
@@ -555,12 +570,13 @@ function TimerRing({
   fraction: number
   critical: boolean
 }) {
+  const { t } = useI18n()
   const R = 22
   const C = 2 * Math.PI * R
   return (
     <div
       className={`relative h-12 w-12 flex-shrink-0 ${overtimeSeconds > 0 ? 'animate-pulse' : ''}`}
-      title={overtimeSeconds > 0 ? `${overtimeSeconds}s into overtime - act now or the turn is skipped` : `${seconds}s left this turn`}
+      title={overtimeSeconds > 0 ? t('uno.overtimeTooltip', { n: overtimeSeconds }) : t('uno.turnTooltip', { s: seconds })}
     >
       <svg viewBox="0 0 56 56" className="h-12 w-12 -rotate-90">
         <circle cx="28" cy="28" r={R} fill="none" strokeWidth="5" className="stroke-gray-200" />

@@ -1,6 +1,7 @@
 using BuildingBlocks.Application;
 using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
+using BuildingBlocks.Domain.Localization;
 using Identity.Application.Common;
 using Identity.Application.Persistence;
 using Identity.Domain.Entities;
@@ -41,7 +42,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
     {
         if (_currentUser.UserId is not { } userId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(
@@ -55,7 +56,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
 
         if (!_passwordHasher.Verify(request.CurrentPassword, user.PasswordHash))
         {
-            throw new UnauthorizedAccessException("Current password is incorrect.");
+            throw new UnauthorizedException(ErrorCodes.Identity.CurrentPasswordIncorrect);
         }
 
         user.UpdatePassword(_passwordHasher.Hash(request.NewPassword));

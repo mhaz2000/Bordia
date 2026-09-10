@@ -3,6 +3,7 @@ using BuildingBlocks.Application;
 using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
 using BuildingBlocks.Infrastructure.CurrentUser;
+using BuildingBlocks.Domain.Localization;
 using Lobby.Application.Dtos;
 using Lobby.Application.Persistence;
 using Lobby.Application.Realtime;
@@ -47,7 +48,7 @@ public class TransferHostCommandHandler : IRequestHandler<TransferHostCommand, R
     {
         if (_currentUser.UserId is not { } hostId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var room = await _dbContext.Rooms
@@ -57,12 +58,12 @@ public class TransferHostCommandHandler : IRequestHandler<TransferHostCommand, R
 
         if (room.HostId != hostId)
         {
-            throw new UnauthorizedAccessException("Only the host can transfer host.");
+            throw new UnauthorizedException(ErrorCodes.Lobby.OnlyHostTransfer);
         }
 
         if (room.GetPlayer(request.PlayerId) is null)
         {
-            throw new ConflictException("The player is not a member of this room.");
+            throw new ConflictException(ErrorCodes.Lobby.PlayerNotMember);
         }
 
         room.ChangeHost(request.PlayerId);

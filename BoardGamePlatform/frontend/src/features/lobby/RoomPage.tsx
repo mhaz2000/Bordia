@@ -8,8 +8,12 @@ import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
 import { UserGroupIcon, TrophyIcon, ArrowRightOnRectangleIcon, PlayIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { useI18n } from '@/i18n/I18nProvider'
+import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
+import { useGameInfo } from '@/features/lobby/gameMeta'
 
 export function RoomPage() {
+  const { t } = useI18n()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const roomId = id!
@@ -33,6 +37,7 @@ export function RoomPage() {
     isStarting,
   } = useLobby()
   const { user, isAuthenticated } = useAuth()
+  const roomTitle = useGameInfo(currentRoom?.gameType ?? '').title
   const [showKickModal, setShowKickModal] = useState<{ playerId: string; displayName: string } | null>(null)
   const [showTransferModal, setShowTransferModal] = useState<{ playerId: string; displayName: string } | null>(null)
   const [showCloseModal, setShowCloseModal] = useState(false)
@@ -123,7 +128,7 @@ export function RoomPage() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p>Please log in to access this room.</p>
+        <p>{t('room.loginRequired')}</p>
       </div>
     )
   }
@@ -148,10 +153,10 @@ export function RoomPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md text-center" padding="lg">
-          <CardTitle>Room not found</CardTitle>
-          <p className="text-gray-600 mt-4">This room may have been closed or doesn't exist.</p>
+          <CardTitle>{t('room.notFound')}</CardTitle>
+          <p className="text-gray-600 mt-4">{t('room.notFoundDetail')}</p>
           <Button variant="primary" className="mt-4" asChild>
-            <a href="/lobby">Back to Lobby</a>
+            <a href="/lobby">{t('common.backToLobby')}</a>
           </Button>
         </Card>
       </div>
@@ -173,19 +178,20 @@ export function RoomPage() {
                 </h1>
                 <p className="text-sm text-gray-500">
                   <span className="font-mono font-semibold text-gray-700 mr-2">{currentRoom.roomCode}</span>
-                  {currentRoom.gameType} - {currentRoom.players.length}/{currentRoom.maxPlayers} players
+                  {roomTitle} - {t('room.playersCount', { n: currentRoom.players.length })}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <LanguageSwitcher />
               {isHost && currentRoom.status === 'Waiting' && (
                 <>
                   <Button variant="primary" onClick={handleStart} isLoading={isStarting} disabled={currentRoom.players.length < 2}>
                     <PlayIcon className="w-4 h-4 mr-2" />
-                    Start Game
+                    {t('room.startGame')}
                   </Button>
                   <Button variant="secondary" onClick={() => setShowCloseModal(true)}>
-                    Close Room
+                    {t('room.closeRoom')}
                   </Button>
                 </>
               )}
@@ -200,7 +206,7 @@ export function RoomPage() {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle>Players</CardTitle>
+                  <CardTitle>{t('room.playersTitle')}</CardTitle>
                   <span className="text-sm text-gray-500">{currentRoom.players.length}/{currentRoom.maxPlayers}</span>
                 </div>
               </CardHeader>
@@ -224,7 +230,7 @@ export function RoomPage() {
             {currentRoom.settings && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Room Settings</CardTitle>
+                  <CardTitle>{t('room.settingsTitle')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <pre className="text-sm text-gray-600 bg-gray-50 p-4 rounded-lg overflow-auto">
@@ -238,28 +244,28 @@ export function RoomPage() {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Status</CardTitle>
+                <CardTitle>{t('room.statusTitle')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-3">
                   <UserGroupIcon className="w-6 h-6 text-gray-400" />
                   <div>
-                    <p className="font-medium text-gray-900">{currentRoom.players.length} players joined</p>
-                    <p className="text-sm text-gray-500">Max: {currentRoom.maxPlayers}</p>
+                    <p className="font-medium text-gray-900">{t('room.joinedCount', { n: currentRoom.players.length })}</p>
+                    <p className="text-sm text-gray-500">{t('room.max', { n: currentRoom.maxPlayers })}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={`w-3 h-3 rounded-full ${currentRoom.status === 'Waiting' ? 'bg-green-500' : currentRoom.status === 'Started' ? 'bg-blue-500' : 'bg-gray-500'}`} />
                   <div>
-                    <p className="font-medium text-gray-900 capitalize">{currentRoom.status.toLowerCase()}</p>
+                    <p className="font-medium text-gray-900">{t('room.status' + currentRoom.status)}</p>
                     {currentRoom.status === 'Started' && currentRoom.startedAt && (
-                      <p className="text-sm text-gray-500">Started at {new Date(currentRoom.startedAt).toLocaleTimeString()}</p>
+                      <p className="text-sm text-gray-500">{t('room.startedAt', { time: new Date(currentRoom.startedAt).toLocaleTimeString('en') })}</p>
                     )}
                   </div>
                 </div>
                 {currentRoom.status === 'Started' && currentGameSessionId && (
                   <Button variant="primary" className="w-full" asChild>
-                    <a href={`/game/${currentGameSessionId}`}>Go to Game</a>
+                    <a href={`/game/${currentGameSessionId}`}>{t('room.goToGame')}</a>
                   </Button>
                 )}
               </CardContent>
@@ -268,11 +274,11 @@ export function RoomPage() {
             {!isHost && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Your Status</CardTitle>
+                  <CardTitle>{t('room.yourStatus')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">Ready to play</span>
+                  <span className="font-medium">{t('room.readyToPlay')}</span>
                   <button
                     type="button"
                     role="switch"
@@ -293,10 +299,10 @@ export function RoomPage() {
             {isHost && currentRoom.status === 'Waiting' && (
               <Card variant="outlined">
                 <CardContent className="space-y-2">
-                  <p className="text-sm text-gray-600 text-center">Waiting for all players to be ready...</p>
+                  <p className="text-sm text-gray-600 text-center">{t('room.waitingReady')}</p>
                   <div className="flex gap-2">
                     <Button variant="secondary" className="flex-1" onClick={() => setShowCloseModal(true)}>
-                      Close Room
+                      {t('room.closeRoom')}
                     </Button>
                   </div>
                 </CardContent>
@@ -306,44 +312,44 @@ export function RoomPage() {
         </div>
       </main>
 
-      <Modal isOpen={!!showKickModal} onClose={() => setShowKickModal(null)} title="Kick Player">
+      <Modal isOpen={!!showKickModal} onClose={() => setShowKickModal(null)} title={t('room.kickTitle')}>
         <p className="text-gray-600">
-          Are you sure you want to kick <strong>{showKickModal?.displayName}</strong> from the room?
+          {t('room.kickConfirm', { name: showKickModal?.displayName ?? '' })}
         </p>
         <div className="flex gap-3 pt-4">
           <Button variant="secondary" onClick={() => setShowKickModal(null)} className="flex-1">
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button variant="danger" onClick={handleKick} className="flex-1">
-            Kick Player
+            {t('room.kickBtn')}
           </Button>
         </div>
       </Modal>
 
-      <Modal isOpen={!!showTransferModal} onClose={() => setShowTransferModal(null)} title="Transfer Host">
+      <Modal isOpen={!!showTransferModal} onClose={() => setShowTransferModal(null)} title={t('room.transferTitle')}>
         <p className="text-gray-600">
-          Transfer host to <strong>{showTransferModal?.displayName}</strong>? You will no longer be the host.
+          {t('room.transferConfirm', { name: showTransferModal?.displayName ?? '' })}
         </p>
         <div className="flex gap-3 pt-4">
           <Button variant="secondary" onClick={() => setShowTransferModal(null)} className="flex-1">
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button variant="primary" onClick={handleTransfer} className="flex-1">
-            Transfer
+            {t('room.transfer')}
           </Button>
         </div>
       </Modal>
 
-      <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title="Close Room">
+      <Modal isOpen={showCloseModal} onClose={() => setShowCloseModal(false)} title={t('room.closeRoom')}>
         <p className="text-gray-600">
-          This will close the room and remove all players. This action cannot be undone.
+          {t('room.closeConfirm')}
         </p>
         <div className="flex gap-3 pt-4">
           <Button variant="secondary" onClick={() => setShowCloseModal(false)} className="flex-1">
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button variant="danger" onClick={handleClose} className="flex-1">
-            Close Room
+            {t('room.closeRoom')}
           </Button>
         </div>
       </Modal>
@@ -366,6 +372,7 @@ function PlayerRow({
   onKick: (data: { playerId: string; displayName: string }) => void
   onTransfer: (data: { playerId: string; displayName: string }) => void
 }) {
+  const { t } = useI18n()
   const isPlayerHost = player.userId === currentRoom?.hostId
   const isConnected = !!player.connectionId
 
@@ -378,10 +385,10 @@ function PlayerRow({
         <div className="flex items-center gap-2">
           <p className="font-medium text-gray-900 truncate">{player.displayName}</p>
           {isPlayerHost && (
-            <TrophyIcon className="w-4 h-4 text-yellow-500 flex-shrink-0" title="Host" />
+            <TrophyIcon className="w-4 h-4 text-yellow-500 flex-shrink-0" title={t('common.host')} />
           )}
           {isCurrentUser && (
-            <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">You</span>
+            <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded-full">{t('common.you')}</span>
           )}
         </div>
         <div className="flex items-center gap-3 text-sm text-gray-500">
@@ -389,11 +396,11 @@ function PlayerRow({
             {isConnected ? (
               <>
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                Online
+                {t('common.online')}
               </>
-            ) : 'Offline'}
+            ) : t('common.offline')}
           </span>
-          <span>{player.isReady ? 'Ready' : 'Not ready'}</span>
+          <span>{player.isReady ? t('common.ready') : t('common.notReady')}</span>
         </div>
       </div>
       <div className="flex items-center gap-2">

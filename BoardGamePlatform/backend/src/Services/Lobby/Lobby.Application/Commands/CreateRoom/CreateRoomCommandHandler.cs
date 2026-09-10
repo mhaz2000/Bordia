@@ -4,6 +4,8 @@ using BuildingBlocks.Contracts.Events;
 using BuildingBlocks.Infrastructure.CurrentUser;
 using BuildingBlocks.Infrastructure.Outbox;
 using BuildingBlocks.Domain.Results;
+using BuildingBlocks.Domain.Exceptions;
+using BuildingBlocks.Domain.Localization;
 using Lobby.Application.Common;
 using Lobby.Application.Dtos;
 using Lobby.Application.Persistence;
@@ -52,7 +54,7 @@ public class CreateRoomCommandHandler : IRequestHandler<CreateRoomCommand, Resul
     {
         if (_currentUser.UserId is not { } userId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var displayName = _currentUser.DisplayName ?? "Player";

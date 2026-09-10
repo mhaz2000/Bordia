@@ -1,6 +1,8 @@
 using AutoMapper;
 using BuildingBlocks.Application;
 using BuildingBlocks.Domain.Results;
+using BuildingBlocks.Domain.Exceptions;
+using BuildingBlocks.Domain.Localization;
 using Identity.Application.Common;
 using Identity.Application.Dtos;
 using Identity.Application.Persistence;
@@ -47,12 +49,12 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
         // Note: tokens are one-time-use. A revoked token means replay — reject regardless.
         if (refreshToken is null || refreshToken.RevokedAt is not null)
         {
-            throw new UnauthorizedAccessException("Invalid or expired refresh token.");
+            throw new UnauthorizedException(ErrorCodes.Identity.InvalidRefreshToken);
         }
 
         if (!refreshToken.IsActive)
         {
-            throw new UnauthorizedAccessException("Refresh token has expired.");
+            throw new UnauthorizedException(ErrorCodes.Identity.RefreshTokenExpired);
         }
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(
@@ -61,7 +63,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
 
         if (user is null || !user.IsActive)
         {
-            throw new UnauthorizedAccessException("Account is no longer active.");
+            throw new UnauthorizedException(ErrorCodes.Identity.AccountNoLongerActive);
         }
 
         var response = _tokenIssuer.Issue(user, out var newRefreshToken);

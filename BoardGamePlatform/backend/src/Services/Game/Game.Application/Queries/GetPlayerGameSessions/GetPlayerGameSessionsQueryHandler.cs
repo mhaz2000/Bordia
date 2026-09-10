@@ -1,6 +1,8 @@
 using AutoMapper;
 using BuildingBlocks.Application;
 using BuildingBlocks.Domain.Results;
+using BuildingBlocks.Domain.Exceptions;
+using BuildingBlocks.Domain.Localization;
 using Game.Application.Dtos;
 using Game.Application.Persistence;
 using MediatR;
@@ -38,7 +40,7 @@ public class GetPlayerGameSessionsQueryHandler
     {
         if (_currentUser.UserId is not { } userId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var sessions = await _dbContext.GameSessions

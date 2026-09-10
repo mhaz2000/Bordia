@@ -3,6 +3,7 @@ using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
 using BuildingBlocks.Infrastructure.Caching;
 using BuildingBlocks.Infrastructure.CurrentUser;
+using BuildingBlocks.Domain.Localization;
 using Game.Application.Common;
 using Game.Application.Persistence;
 using Game.Application.Realtime;
@@ -57,7 +58,7 @@ public class ProcessGameActionCommandHandler : IRequestHandler<ProcessGameAction
     {
         if (_currentUser.UserId is not { } userId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var session = await _dbContext.GameSessions
@@ -67,12 +68,12 @@ public class ProcessGameActionCommandHandler : IRequestHandler<ProcessGameAction
 
         if (session.GetPlayer(userId) is null)
         {
-            throw new UnauthorizedAccessException("You are not a player in this game.");
+            throw new UnauthorizedException(ErrorCodes.Game.NotAPlayer);
         }
 
         if (session.Status != GameSessionStatus.Active)
         {
-            throw new ConflictException("This game is not accepting actions right now.");
+            throw new ConflictException(ErrorCodes.Game.NotAccepting);
         }
 
         var engine = _engineProvider.Get(session.GameType);
@@ -107,12 +108,16 @@ public class ProcessGameActionCommandHandler : IRequestHandler<ProcessGameAction
                 session.Id,
                 result.Error);
 
-            throw new ConflictException(result.Error ?? "The action was not accepted.");
+            // result.Error is a stable error code; the middleware localizes it
+            // (Accept-Language) using the ErrorCatalog at the response boundary.
+            throw new ConflictException(
+                result.Error ?? ErrorCodes.Game.ActionRejected,
+                result.ErrorArgs ?? Array.Empty<object?>());
         }
 
         if (result.NewState is null)
         {
-            throw new ConflictException("The game engine returned no state for a valid action.");
+            throw new ConflictException(ErrorCodes.Game.NoEngineState);
         }
 
         session.ApplyState(result.NewState.ToJson());

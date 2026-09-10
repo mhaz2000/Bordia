@@ -1,6 +1,8 @@
 using AutoMapper;
 using BuildingBlocks.Application;
 using BuildingBlocks.Domain.Results;
+using BuildingBlocks.Domain.Exceptions;
+using BuildingBlocks.Domain.Localization;
 using Lobby.Application.Dtos;
 using Lobby.Application.Persistence;
 using MediatR;
@@ -37,7 +39,7 @@ public class GetMyRoomsQueryHandler : IRequestHandler<GetMyRoomsQuery, Result<Li
     {
         if (_currentUser.UserId is not { } userId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var rooms = await _dbContext.Rooms

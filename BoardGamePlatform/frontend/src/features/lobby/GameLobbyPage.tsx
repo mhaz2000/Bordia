@@ -23,7 +23,9 @@ import { Select } from '@/shared/components/Select'
 import { Modal } from '@/shared/components/Modal'
 import { Card, CardContent } from '@/shared/components/Card'
 import { UnoCardVisual, UnoCardBackVisual } from '@/shared/components/UnoCardVisual'
-import { getGameInfo, type RuleIconName } from './gameMeta'
+import { useI18n } from '@/i18n/I18nProvider'
+import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
+import { useGameInfo, type RuleIconName } from './gameMeta'
 import { RoomCard } from './RoomCard'
 import { ActiveGameCard } from './ActiveGameCard'
 import type { LobbyRoom } from '@/shared/api/lobby'
@@ -38,19 +40,20 @@ const RULE_ICONS: Record<RuleIconName, typeof PlayIcon> = {
   flag: FlagIcon,
 }
 
-const ACTION_CARDS: { color: number; value: number; name: string; blurb: string }[] = [
-  { color: 1, value: 10, name: 'Skip', blurb: 'The next player loses their turn' },
-  { color: 3, value: 11, name: 'Reverse', blurb: 'Flips direction - acts as a Skip in 2p' },
-  { color: 0, value: 12, name: 'Draw Two', blurb: 'Next player draws 2 and forfeits' },
-  { color: 4, value: 13, name: 'Wild', blurb: 'Play anytime - choose the color' },
-  { color: 4, value: 14, name: 'Wild Draw Four', blurb: 'Draw 4 + color - can be challenged' },
+const ACTION_CARD_IDS: { color: number; value: number }[] = [
+  { color: 1, value: 10 },
+  { color: 3, value: 11 },
+  { color: 0, value: 12 },
+  { color: 4, value: 13 },
+  { color: 4, value: 14 },
 ]
 
 export function GameLobbyPage() {
   const { gameType } = useParams<{ gameType: string }>()
   const gameTypeParam = gameType ?? ''
-  const info = getGameInfo(gameTypeParam)
+  const info = useGameInfo(gameTypeParam)
   const isUno = gameTypeParam === 'UNO'
+  const { t } = useI18n()
   const navigate = useNavigate()
   const { createRoom, joinRoom, isCreating } = useLobby()
   const { user } = useAuth()
@@ -97,11 +100,11 @@ export function GameLobbyPage() {
     e.preventDefault()
     setCreateError('')
     if (!name.trim()) {
-      setCreateError('Please enter a room name.')
+      setCreateError(t('gameLobby.enterName'))
       return
     }
     if (!catalogGame) {
-      setCreateError('Game catalog is still loading. Please try again.')
+      setCreateError(t('gameLobby.catalogLoading'))
       return
     }
     try {
@@ -110,7 +113,7 @@ export function GameLobbyPage() {
       setName('')
       navigate(`/lobby/${room.id}`)
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to create room')
+      setCreateError(err instanceof Error ? err.message : t('gameLobby.createFailed'))
     }
   }
 
@@ -123,7 +126,7 @@ export function GameLobbyPage() {
       }
       navigate(`/lobby/${room.id}`)
     } catch (err) {
-      setJoinError(err instanceof Error ? err.message : 'Failed to join room')
+      setJoinError(err instanceof Error ? err.message : t('gameLobby.joinFailed'))
     }
   }
 
@@ -141,10 +144,13 @@ export function GameLobbyPage() {
               <h1 className="text-xl font-bold text-gray-900">{info.title}</h1>
             </div>
             {!info.comingSoon && (
-              <Button variant="primary" onClick={openCreateModal} isLoading={isCreating}>
-                <PlusIcon className="w-5 h-5 mr-2" />
-                Create {info.title} Room
-              </Button>
+              <div className="flex items-center gap-3">
+                <LanguageSwitcher />
+                <Button variant="primary" onClick={openCreateModal} isLoading={isCreating}>
+                  <PlusIcon className="w-5 h-5 me-2" />
+                  {t('gameLobby.createRoomBtn', { title: info.title })}
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -156,18 +162,19 @@ export function GameLobbyPage() {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(16,185,129,0.35),transparent_55%)]" />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(239,68,68,0.18),transparent_50%)]" />
 
-          {/* Decorative cards */}
+          {/* Decorative cards (physical sides flip per direction so they always
+              sit on the trailing side, opposite the text block) */}
           {isUno && (
             <>
-              <div className="pointer-events-none absolute -left-6 top-8 hidden sm:block">
-                <div className="relative">
+              <div className="pointer-events-none absolute -left-6 rtl:-left-auto rtl:-right-6 top-8 hidden sm:block">
+                <div className="relative rtl:-scale-x-100">
                   <UnoCardBackVisual className="absolute -left-10 top-2 rotate-[-24deg] opacity-70" />
                   <div className="animate-floaty" style={{ '--rot': '-14deg' } as React.CSSProperties}>
                     <UnoCardVisual card={{ Color: 0, Value: 7 }} size="lg" className="rotate-[-14deg]" />
                   </div>
                 </div>
               </div>
-              <div className="pointer-events-none absolute right-6 top-6 hidden md:flex gap-3">
+              <div className="pointer-events-none absolute right-6 rtl:right-auto rtl:left-6 top-6 hidden md:flex gap-3">
                 <div className="animate-floaty-delayed" style={{ '--rot': '10deg' } as React.CSSProperties}>
                   <UnoCardVisual card={{ Color: 4, Value: 13 }} size="lg" className="rotate-[10deg]" />
                 </div>
@@ -181,7 +188,7 @@ export function GameLobbyPage() {
             </>
           )}
           {!isUno && (
-            <div className="pointer-events-none absolute right-8 top-8 hidden md:block opacity-20">
+            <div className="pointer-events-none absolute right-8 rtl:right-auto rtl:left-8 top-8 hidden md:block opacity-20">
               <span className="text-[10rem] font-black text-white leading-none">{info.title.charAt(0)}</span>
             </div>
           )}
@@ -189,12 +196,12 @@ export function GameLobbyPage() {
           <div className="relative px-6 py-12 sm:px-12 sm:py-16 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-emerald-200 backdrop-blur-sm">
-                Card game
+                {t('gameLobby.cardGame')}
               </span>
               {catalogGame && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white/80 backdrop-blur-sm">
                   <UserGroupIcon className="w-3.5 h-3.5" />
-                  {catalogGame.minPlayers}-{catalogGame.maxPlayers} players
+                  {t('lobby.playersRange', { min: catalogGame.minPlayers, max: catalogGame.maxPlayers })}
                 </span>
               )}
             </div>
@@ -207,14 +214,14 @@ export function GameLobbyPage() {
               <div className="mt-6 flex flex-wrap gap-3">
                 <Button onClick={openCreateModal} isLoading={isCreating} className="!bg-white !text-emerald-900 hover:!bg-emerald-50 border-none shadow-lg">
                   <PlusIcon className="w-5 h-5 mr-1.5" />
-                  Create a table
+                  {t('gameLobby.createTable')}
                 </Button>
                 <Button
                   variant="ghost"
                   onClick={() => document.getElementById('open-rooms')?.scrollIntoView({ behavior: 'smooth' })}
                   className="!text-white border !border-white/30 hover:!bg-white/10"
                 >
-                  Browse open rooms
+                  {t('gameLobby.browseRooms')}
                 </Button>
               </div>
             )}
@@ -224,9 +231,9 @@ export function GameLobbyPage() {
         {/* ============================ STATS ============================ */}
         {!info.comingSoon && (
           <section className="grid grid-cols-3 gap-4">
-            <StatTile label="Open rooms" value={gameRooms.length} />
-            <StatTile label="Players seated" value={seatedPlayers} />
-            <StatTile label="Your live games" value={activeGames.length} />
+            <StatTile label={t('gameLobby.statOpenRooms')} value={gameRooms.length} />
+            <StatTile label={t('gameLobby.statSeated')} value={seatedPlayers} />
+            <StatTile label={t('gameLobby.statLive')} value={activeGames.length} />
           </section>
         )}
 
@@ -238,10 +245,10 @@ export function GameLobbyPage() {
 
         {/* ============================ RULES ============================ */}
         <section className="space-y-4">
-          <SectionTitle title="How to play" />
+          <SectionTitle title={t('gameLobby.howToPlay')} />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {info.rules.map((rule, i) => {
-              const Icon = RULE_ICONS[rule.icon] ?? PlayIcon
+              const Icon = RULE_ICONS[rule.icon as RuleIconName] ?? PlayIcon
               return (
                 <Card key={i} className="hover:shadow-md transition-shadow">
                   <CardContent className="flex gap-4">
@@ -260,22 +267,25 @@ export function GameLobbyPage() {
         </section>
 
         {/* ============================ ACTION CARDS (UNO) ============================ */}
-        {isUno && (
+        {isUno && info.actionCards.length > 0 && (
           <section className="space-y-4">
-            <SectionTitle title="Meet the action cards" />
+            <SectionTitle title={t('gameLobby.meetActionCards')} />
             <div className="rounded-3xl bg-gradient-to-br from-slate-800 via-slate-900 to-black p-6 sm:p-8 shadow-inner">
               <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-5">
-                {ACTION_CARDS.map((c) => (
-                  <div key={c.value} className="flex flex-col items-center gap-3 text-center">
-                    <div className="transition-transform duration-200 hover:-translate-y-2 hover:scale-105">
-                      <UnoCardVisual card={{ Color: c.color, Value: c.value }} size="lg" />
+                {info.actionCards.map((c, i) => {
+                  const ids = ACTION_CARD_IDS[i]
+                  return (
+                    <div key={i} className="flex flex-col items-center gap-3 text-center">
+                      <div className="transition-transform duration-200 hover:-translate-y-2 hover:scale-105">
+                        <UnoCardVisual card={{ Color: ids.color, Value: ids.value }} size="lg" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">{c.name}</p>
+                        <p className="mt-1 text-xs text-white/50 leading-snug">{c.blurb}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-white">{c.name}</p>
-                      <p className="mt-1 text-xs text-white/50 leading-snug">{c.blurb}</p>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           </section>
@@ -285,10 +295,10 @@ export function GameLobbyPage() {
           <Card>
             <CardContent className="py-12 text-center">
               <LockClosedIcon className="mx-auto h-10 w-10 text-gray-400" />
-              <h3 className="mt-2 text-lg font-medium text-gray-900">{info.title} is coming soon</h3>
-              <p className="mt-1 text-gray-500">Rooms will open once the game is released.</p>
+              <h3 className="mt-2 text-lg font-medium text-gray-900">{t('gameLobby.comingSoonTitle', { title: info.title })}</h3>
+              <p className="mt-1 text-gray-500">{t('gameLobby.comingSoonDetail')}</p>
               <Button variant="primary" className="mt-4" asChild>
-                <Link to="/lobby">Back to game catalog</Link>
+                <Link to="/lobby">{t(`common.backToLobby`)}</Link>
               </Button>
             </CardContent>
           </Card>
@@ -297,7 +307,7 @@ export function GameLobbyPage() {
             {/* Active games of this type */}
             {activeGames.length > 0 && (
               <section className="space-y-3">
-                <SectionTitle title={`Your live ${info.title} games`} pulse />
+                <SectionTitle title={t('gameLobby.yourLiveGames', { title: info.title })} pulse />
                 {activeGames.map((session) => (
                   <ActiveGameCard
                     key={session.id}
@@ -312,10 +322,10 @@ export function GameLobbyPage() {
             {/* Open rooms */}
             <section id="open-rooms" className="space-y-4 scroll-mt-24">
               <div className="flex items-center justify-between">
-                <SectionTitle title="Open tables" pulse />
+                <SectionTitle title={t('gameLobby.openTables')} pulse />
                 <Button variant="secondary" size="sm" onClick={openCreateModal} isLoading={isCreating}>
-                  <PlusIcon className="w-4 h-4 mr-1" />
-                  New room
+                  <PlusIcon className="w-4 h-4 me-1" />
+                  {t('gameLobby.newRoom')}
                 </Button>
               </div>
 
@@ -329,11 +339,11 @@ export function GameLobbyPage() {
                     <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50">
                       <UserGroupIcon className="h-7 w-7 text-blue-500" />
                     </div>
-                    <h3 className="mt-4 text-lg font-semibold text-gray-900">No open {info.title} tables yet</h3>
-                    <p className="mt-1 text-gray-500">Be the host - create a room and deal the first hand!</p>
+                    <h3 className="mt-4 text-lg font-semibold text-gray-900">{t('gameLobby.noTablesYet', { title: info.title })}</h3>
+                    <p className="mt-1 text-gray-500">{t('gameLobby.beHost')}</p>
                     <Button variant="primary" className="mt-5" onClick={openCreateModal} isLoading={isCreating}>
-                      <PlusIcon className="w-5 h-5 mr-2" />
-                      Create {info.title} Room
+                      <PlusIcon className="w-5 h-5 me-2" />
+                      {t('gameLobby.createRoomBtn', { title: info.title })}
                     </Button>
                   </CardContent>
                 </Card>
@@ -350,7 +360,7 @@ export function GameLobbyPage() {
       </main>
 
       {/* Create room modal (game type locked to this page) */}
-      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title={`Create ${info.title} Room`}>
+      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title={t('gameLobby.createRoomTitle', { title: info.title })}>
         <form onSubmit={handleCreateRoom} noValidate className="space-y-4">
           {createError && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm" role="alert">
@@ -358,15 +368,15 @@ export function GameLobbyPage() {
             </div>
           )}
           <Input
-            label="Room Name"
+            label={t('gameLobby.roomName')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            placeholder={`My ${info.title} table`}
+            placeholder={t('gameLobby.roomNamePlaceholder', { title: info.title })}
             maxLength={50}
           />
           <Select
-            label="Max Players"
+            label={t('gameLobby.maxPlayers')}
             value={maxPlayers}
             onChange={(e) => setMaxPlayers(Number(e.target.value))}
             disabled={!catalogGame}
@@ -377,7 +387,7 @@ export function GameLobbyPage() {
                 (_, index) => catalogGame.minPlayers + index
               ).map((n) => (
                 <option key={n} value={n}>
-                  {n} players
+                  {t('gameLobby.playersOption', { n })}
                 </option>
               ))}
           </Select>
@@ -390,15 +400,15 @@ export function GameLobbyPage() {
               className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
             <label htmlFor="isPrivateGame" className="text-sm text-gray-700">
-              Private room (invite only)
+              {t('gameLobby.privateRoom')}
             </label>
           </div>
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" type="button" onClick={() => setShowCreateModal(false)} className="flex-1">
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="submit" isLoading={isCreating} disabled={!catalogGame} className="flex-1">
-              Create Room
+              {t('common.create')}
             </Button>
           </div>
         </form>
@@ -427,3 +437,4 @@ function SectionTitle({ title, pulse }: { title: string; pulse?: boolean }) {
     </h2>
   )
 }
+

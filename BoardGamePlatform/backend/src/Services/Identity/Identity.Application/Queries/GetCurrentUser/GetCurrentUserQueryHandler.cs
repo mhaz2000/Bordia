@@ -2,6 +2,7 @@ using AutoMapper;
 using BuildingBlocks.Application;
 using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
+using BuildingBlocks.Domain.Localization;
 using Identity.Application.Dtos;
 using Identity.Application.Persistence;
 using Identity.Domain.Entities;
@@ -39,7 +40,7 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, R
     {
         if (_currentUser.UserId is not { } userId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var user = await _dbContext.Users.FirstOrDefaultAsync(

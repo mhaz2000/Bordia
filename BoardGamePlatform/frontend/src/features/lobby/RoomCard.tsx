@@ -1,7 +1,16 @@
 import { Button } from '@/shared/components/Button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
 import { LockClosedIcon, UserGroupIcon, PlayIcon } from '@heroicons/react/24/outline'
+import { useI18n } from '@/i18n/I18nProvider'
+import { useGameInfo } from '@/features/lobby/gameMeta'
 import type { LobbyRoom } from '@/shared/api/lobby'
+
+/** Room status pill keys for the backend enum values (raw text fallback for unknowns). */
+const STATUS_KEYS: Record<string, string> = {
+  Waiting: 'room.statusWaiting',
+  Started: 'room.statusStarted',
+  Closed: 'room.statusClosed',
+}
 
 export function RoomCard({
   room,
@@ -12,6 +21,8 @@ export function RoomCard({
   currentUserId?: string
   onSelect: (room: LobbyRoom) => void
 }) {
+  const { t } = useI18n()
+  const gameTitle = useGameInfo(room.gameType).title
   const isMember = room.players.some((p) => p.userId === currentUserId)
   const canJoin = room.status === 'Waiting' && (isMember || room.players.length < room.maxPlayers)
 
@@ -23,7 +34,7 @@ export function RoomCard({
             <CardTitle className="text-base">{room.name}</CardTitle>
             <p className="text-sm text-gray-500 mt-1">
               <span className="font-mono font-semibold text-gray-700 mr-2">{room.roomCode}</span>
-              {room.gameType}
+              {gameTitle}
             </p>
           </div>
           {room.isPrivate && <LockClosedIcon className="w-5 h-5 text-gray-400 mt-1" />}
@@ -44,10 +55,10 @@ export function RoomCard({
                   : 'bg-gray-100 text-gray-800'
             }`}
           >
-            {room.status}
+            {STATUS_KEYS[room.status] ? t(STATUS_KEYS[room.status]) : room.status}
           </span>
         </div>
-        <div className="text-xs text-gray-500">Host: {room.hostDisplayName}</div>
+        <div className="text-xs text-gray-500">{t('common.host')}: {room.hostDisplayName}</div>
         <div className="flex gap-1">
           {room.players.slice(0, 4).map((player) => (
             <div
@@ -73,9 +84,10 @@ export function RoomCard({
           variant={room.status === 'Waiting' ? 'primary' : 'secondary'}
         >
           {room.status === 'Waiting' && !isMember && <PlayIcon className="w-4 h-4 mr-1" />}
-          {isMember ? 'Open' : room.status === 'Waiting' ? 'Join Room' : room.status === 'Started' ? 'Game Started' : 'Room Closed'}
+          {isMember ? t('roomCard.open') : room.status === 'Waiting' ? t('roomCard.joinRoom') : room.status === 'Started' ? t('roomCard.gameStarted') : t('roomCard.roomClosed')}
         </Button>
       </CardContent>
     </Card>
   )
 }
+

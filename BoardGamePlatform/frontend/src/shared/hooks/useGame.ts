@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useGameStore } from '@/shared/state/gameStore'
 import { gameApi, type ProcessGameActionRequest } from '@/shared/api/client'
 import { gameHub } from '@/shared/signalr/gameHub'
+import { getActiveT } from '@/i18n/I18nProvider'
 import type { GameState } from '@/shared/api/game'
 
 export function useGame() {
@@ -126,7 +127,7 @@ export function useGame() {
   }, [])
 
   const sendAction = async (actionType: string, payload: Record<string, unknown>) => {
-    if (!currentSession) throw new Error('No active game session')
+    if (!currentSession) throw new Error(getActiveT()('game.noActiveSession'))
     return processActionMutation.mutateAsync({
       sessionId: currentSession.id,
       actionType,

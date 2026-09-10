@@ -3,6 +3,8 @@ export * from './lobby'
 export * from './game'
 
 import { useAuthStore } from '@/shared/state/authStore'
+import { getActiveLang, getActiveT } from '@/i18n/I18nProvider'
+import { translateBackendMessage } from '@/i18n/backendMessages'
 import type { 
   RegisterRequest, 
   LoginRequest, 
@@ -29,9 +31,14 @@ const API_BASE = (import.meta as any).env?.VITE_API_BASE || '/api'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = useAuthStore.getState().accessToken
-  
+  const lang = getActiveLang()
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
+    // Localize backend error responses with the app's language, overriding
+    // the browser's automatic Accept-Language.
+    'X-Language': lang,
+    'Accept-Language': lang,
     ...(token && { Authorization: `Bearer ${token}` }),
     ...options.headers,
   }
@@ -42,11 +49,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   })
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Request failed' }))
+    const requestFailed = getActiveT()('common.requestFailed')
+    const error = await response.json().catch(() => ({ detail: requestFailed }))
     if (response.status === 401 && !path.includes('/identity/login') && !path.includes('/identity/logout')) {
       useAuthStore.getState().logout()
     }
-    throw new ApiError(response.status, error.detail || error.title || 'Request failed', error.errors)
+    const rawMessage = error.detail || error.title || requestFailed
+    const message = translateBackendMessage(rawMessage, getActiveT())
+    throw new ApiError(response.status, message, error.errors)
   }
 
   if (response.status === 204) {

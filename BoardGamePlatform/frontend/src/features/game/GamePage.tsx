@@ -9,8 +9,12 @@ import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
 import { ArrowRightOnRectangleIcon, PauseIcon, PlayIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { useI18n } from '@/i18n/I18nProvider'
+import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
+import { useGameInfo } from '@/features/lobby/gameMeta'
 
 export function GamePage() {
+  const { t } = useI18n()
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const sessionId = id!
@@ -29,6 +33,7 @@ export function GamePage() {
     isSendingAction,
   } = useGame()
   const { user } = useAuth()
+  const sessionTitle = useGameInfo(currentSession?.gameType ?? '').title
   const setSession = useGameStore((s) => s.setSession)
   const setTakenOver = useGameStore((s) => s.setTakenOver)
   const [showLeaveModal, setShowLeaveModal] = useState(false)
@@ -72,7 +77,7 @@ export function GamePage() {
     const cleanup = setupSignalR()
     connectAndJoinSession(sessionId).catch((err: Error) => {
       console.error('[Game] Failed to join session:', err)
-      setGameError(err.message || 'Failed to connect to the game session.')
+      setGameError(err.message || t('game.connectFailed'))
     })
     return () => {
       cleanup()
@@ -102,7 +107,7 @@ export function GamePage() {
     try {
       await sendAction(actionType, payload)
     } catch (err) {
-      setGameError(err instanceof Error ? err.message : 'Action failed')
+      setGameError(err instanceof Error ? err.message : t('game.actionFailed'))
     } finally {
       actionInFlight.current = false
     }
@@ -120,10 +125,10 @@ export function GamePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md text-center" padding="lg">
-          <CardTitle>Game session not found</CardTitle>
-          <p className="text-gray-600 mt-4">This game session may have ended or doesn't exist.</p>
+          <CardTitle>{t('game.notFound')}</CardTitle>
+          <p className="text-gray-600 mt-4">{t('game.notFoundDetail')}</p>
           <Button variant="primary" className="mt-4" asChild>
-            <a href="/lobby">Back to Lobby</a>
+            <a href="/lobby">{t('common.backToLobby')}</a>
           </Button>
         </Card>
       </div>
@@ -140,21 +145,22 @@ export function GamePage() {
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
               </Button>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">{currentSession.gameType}</h1>
-                <p className="text-sm text-gray-500">Session: {currentSession.id.slice(0, 8)}...</p>
+                <h1 className="text-xl font-bold text-gray-900">{sessionTitle}</h1>
+                <p className="text-sm text-gray-500">{t('game.sessionLabel', { id: currentSession.id.slice(0, 8) })}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <LanguageSwitcher />
               {currentSession.status === 'Active' && (
                 <Button variant="secondary" onClick={handlePause} size="sm">
                   <PauseIcon className="w-4 h-4 mr-1" />
-                  Pause
+                  {t('game.pause')}
                 </Button>
               )}
               {currentSession.status === 'Paused' && (
                 <Button variant="primary" onClick={handleResume} size="sm">
                   <PlayIcon className="w-4 h-4 mr-1" />
-                  Resume
+                  {t('game.resume')}
                 </Button>
               )}
             </div>
@@ -202,16 +208,16 @@ export function GamePage() {
         )}
       </main>
 
-      <Modal isOpen={showLeaveModal} onClose={() => setShowLeaveModal(false)} title="Leave Game">
+      <Modal isOpen={showLeaveModal} onClose={() => setShowLeaveModal(false)} title={t('game.leaveTitle')}>
         <p className="text-gray-600">
-          Are you sure you want to leave this game? You can rejoin later if the game is still in progress.
+          {t('game.leaveConfirm')}
         </p>
         <div className="flex gap-3 pt-4">
           <Button variant="secondary" onClick={() => setShowLeaveModal(false)} className="flex-1">
-            Stay
+            {t('game.stay')}
           </Button>
           <Button variant="danger" onClick={handleLeave} className="flex-1">
-            Leave Game
+            {t('game.leave')}
           </Button>
         </div>
       </Modal>
@@ -231,10 +237,12 @@ function GameBoard({
     data: Record<string, unknown>
   } | null
 }) {
+  const { t } = useI18n()
+  const boardTitle = useGameInfo(state?.gameType ?? '').title
   if (!state) {
     return (
       <Card className="h-96 flex items-center justify-center">
-        <p className="text-gray-500">Loading game state...</p>
+        <p className="text-gray-500">{t('game.loadingState')}</p>
       </Card>
     )
   }
@@ -243,22 +251,22 @@ function GameBoard({
     return (
       <Card className="min-h-[500px]">
         <CardHeader>
-          <CardTitle>Splendor - Game Board</CardTitle>
+          <CardTitle>{t('game.splendorBoard')}</CardTitle>
         </CardHeader>
         <CardContent className="min-h-[400px] flex items-center justify-center">
           <div className="text-center text-gray-500">
-            <p className="text-lg font-medium mb-2">Splendor Game Board</p>
-            <p>Game implementation pending (Phase 2)</p>
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg text-left max-w-md mx-auto">
-              <p className="font-medium mb-2">Current State:</p>
-              <pre className="text-sm text-gray-600 overflow-auto">
+            
+            <p>{t('game.splendorPending')}</p>
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg text-start max-w-md mx-auto">
+              <p className="font-medium mb-2">{t('game.splendorState')}</p>
+              <pre className="text-sm text-gray-600 overflow-auto text-start">
                 {JSON.stringify(state.data, null, 2) || '{}'}
               </pre>
             </div>
             <div className="mt-4 space-y-2">
-              <p className="text-sm">Players: {state.players.map(p => p.userId.slice(0, 8)).join(', ')}</p>
-              <p className="text-sm">Current turn: {state.currentPlayerIndex !== undefined ? state.players[state.currentPlayerIndex]?.userId.slice(0, 8) : 'N/A'}</p>
-              <p className="text-sm">Game over: {state.isOver ? 'Yes' : 'No'}</p>
+              <p className="text-sm">{t('game.splendorPlayers')} {state.players.map(p => p.userId.slice(0, 8)).join(', ')}</p>
+              <p className="text-sm">{t('game.splendorTurn')} {state.currentPlayerIndex !== undefined ? state.players[state.currentPlayerIndex]?.userId.slice(0, 8) : '-'}</p>
+              <p className="text-sm">{t('game.splendorOver')} {state.isOver ? t('game.splendorYes') : t('game.splendorNo')}</p>
             </div>
           </div>
         </CardContent>
@@ -269,20 +277,21 @@ function GameBoard({
   return (
     <Card className="min-h-[500px]">
       <CardHeader>
-        <CardTitle>{state.gameType} - Game Board</CardTitle>
+        <CardTitle>{t('game.gameBoard', { title: boardTitle })}</CardTitle>
       </CardHeader>
       <CardContent className="min-h-[400px] flex items-center justify-center text-gray-500">
-        Game board for {state.gameType} not implemented yet.
+        {t('game.boardPending', { title: boardTitle })}
       </CardContent>
     </Card>
   )
 }
 
 function GamePlayersPanel({ session, currentUserId }: { session: { players: { id: string; userId: string; displayName: string; position: number; isConnected: boolean }[] }; currentUserId?: string }) {
+  const { t } = useI18n()
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Players</CardTitle>
+        <CardTitle>{t('room.playersTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-2">
@@ -293,7 +302,7 @@ function GamePlayersPanel({ session, currentUserId }: { session: { players: { id
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-900 truncate">{player.displayName}</p>
-                <p className="text-xs text-gray-500">Position: {player.position + 1}</p>
+                <p className="text-xs text-gray-500">{t('game.splendorPosition')} {player.position + 1}</p>
               </div>
               <span className={`w-2 h-2 rounded-full ${player.isConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
             </li>
@@ -305,6 +314,7 @@ function GamePlayersPanel({ session, currentUserId }: { session: { players: { id
 }
 
 function GameActionsPanel({ state, userId, onAction, isLoading }: { state: { currentPlayerIndex?: number; players: { userId: string }[] } | null; userId?: string; onAction: (actionType: string, payload: Record<string, unknown>) => void; isLoading: boolean }) {
+  const { t } = useI18n()
   if (!state) return null
 
   const isCurrentPlayer = state.currentPlayerIndex !== undefined && state.players[state.currentPlayerIndex]?.userId === userId
@@ -312,22 +322,22 @@ function GameActionsPanel({ state, userId, onAction, isLoading }: { state: { cur
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Actions</CardTitle>
+        <CardTitle>{t('game.actionsTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
           {!isCurrentPlayer ? (
-            <p className="text-sm text-gray-500 text-center py-4">Waiting for your turn...</p>
+            <p className="text-sm text-gray-500 text-center py-4">{t('game.waitingTurn')}</p>
           ) : (
             <>
               <Button variant="primary" className="w-full" onClick={() => onAction('TakeTokens', {})} isLoading={isLoading}>
-                Take Tokens
+                {t('game.takeTokens')}
               </Button>
               <Button variant="secondary" className="w-full" onClick={() => onAction('BuyCard', {})} isLoading={isLoading}>
-                Buy Card
+                {t('game.buyCard')}
               </Button>
               <Button variant="secondary" className="w-full" onClick={() => onAction('ReserveCard', {})} isLoading={isLoading}>
-                Reserve Card
+                {t('game.reserveCard')}
               </Button>
             </>
           )}
@@ -337,21 +347,28 @@ function GameActionsPanel({ state, userId, onAction, isLoading }: { state: { cur
   )
 }
 
+/** SignalR change types surfaced in the generic game log (falls back to raw text). */
+const EVENT_TYPE_KEYS: Record<string, string> = {
+  ActionProcessed: 'events.actionProcessed',
+  GameFinished: 'events.gameFinished',
+}
+
 function GameLogPanel({ events }: { events: { type: string; playerId?: { userId: string }; payload: string }[] }) {
+  const { t } = useI18n()
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Game Log</CardTitle>
+        <CardTitle>{t('uno.gameLog')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="max-h-64 overflow-y-auto space-y-2">
           {events.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">No events yet</p>
+            <p className="text-sm text-gray-500 text-center py-4">{t('game.noEvents')}</p>
           ) : (
             events.slice().reverse().map((event, index) => (
               <div key={index} className="text-sm text-gray-600 p-2 bg-gray-50 rounded">
-                <span className="font-medium text-gray-900">{event.type}</span>
-                {event.playerId && <span className="mx-2 text-blue-600">Player {event.playerId.userId.slice(0, 8)}</span>}
+                <span className="font-medium text-gray-900">{EVENT_TYPE_KEYS[event.type] ? t(EVENT_TYPE_KEYS[event.type]) : event.type}</span>
+                {event.playerId && <span className="mx-2 text-blue-600">{t('game.playerPrefix', { id: event.playerId.userId.slice(0, 8) })}</span>}
                 <span className="text-gray-500">{event.payload}</span>
               </div>
             ))

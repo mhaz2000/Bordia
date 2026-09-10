@@ -1,5 +1,6 @@
 import * as signalR from '@microsoft/signalr'
 import { useAuthStore } from '@/shared/state/authStore'
+import { getActiveT } from '@/i18n/I18nProvider'
 
 export interface GameHubEvents {
   onGameStateUpdated: (gameSessionId: string, state: unknown) => void
@@ -111,7 +112,7 @@ class GameHubClient {
   async joinSession(sessionId: string): Promise<void> {
     await this.connect()
     if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
-      throw new Error('Cannot join the game session because the connection is not ready. Please try again.')
+      throw new Error(getActiveT()('game.connectionNotReady'))
     }
     // Idempotent join: the same connection re-joining the same session (React
     // StrictMode double-mount, effect re-runs) must not invoke JoinSession twice,

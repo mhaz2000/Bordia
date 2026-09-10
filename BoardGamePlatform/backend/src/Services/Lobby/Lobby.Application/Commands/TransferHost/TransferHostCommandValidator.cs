@@ -1,3 +1,4 @@
+using BuildingBlocks.Domain.Localization;
 using FluentValidation;
 
 namespace Lobby.Application.Commands.TransferHost;
@@ -9,13 +10,16 @@ public class TransferHostCommandValidator : AbstractValidator<TransferHostComman
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="TransferHostCommandValidator"/> class.
+    /// Validation failures carry catalog codes; the response middleware localizes them.
     /// </summary>
     public TransferHostCommandValidator()
     {
         RuleFor(x => x.RoomId)
-            .NotEmpty();
+            .NotEmpty()
+            .WithMessage(ErrorCodes.Validation.RoomIdRequired);
 
         RuleFor(x => x.PlayerId)
-            .NotEmpty();
+            .NotEmpty()
+            .WithMessage(ErrorCodes.Validation.PlayerIdRequired);
     }
 }

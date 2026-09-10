@@ -4,6 +4,7 @@ using BuildingBlocks.Contracts.Events;
 using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
 using BuildingBlocks.Infrastructure.Outbox;
+using BuildingBlocks.Domain.Localization;
 using Lobby.Application.Common;
 using Lobby.Application.Dtos;
 using Lobby.Application.Persistence;
@@ -60,7 +61,7 @@ public class StartGameCommandHandler : IRequestHandler<StartGameCommand, Result<
     {
         if (_currentUser.UserId is not { } hostId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var room = await _dbContext.Rooms
@@ -70,22 +71,22 @@ public class StartGameCommandHandler : IRequestHandler<StartGameCommand, Result<
 
         if (room.HostId != hostId)
         {
-            throw new UnauthorizedAccessException("Only the host can start the game.");
+            throw new UnauthorizedException(ErrorCodes.Lobby.OnlyHostStart);
         }
 
         if (room.Status != RoomStatus.Waiting)
         {
-            throw new ConflictException("This room is not in a startable state.");
+            throw new ConflictException(ErrorCodes.Lobby.RoomNotStartable);
         }
 
         if (room.Players.Count < 2)
         {
-            throw new ConflictException("At least two players are required to start.");
+            throw new ConflictException(ErrorCodes.Lobby.TwoPlayersRequired);
         }
 
         if (room.Players.Where(p => p.UserId != hostId).Any(p => !p.IsReady))
         {
-            throw new ConflictException("All players must be ready before starting.");
+            throw new ConflictException(ErrorCodes.Lobby.AllMustBeReady);
         }
 
         Guid gameSessionId;
@@ -106,7 +107,7 @@ public class StartGameCommandHandler : IRequestHandler<StartGameCommand, Result<
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create game session for room {RoomId}", room.Id);
-            throw new ConflictException("The game service could not start a session. Please try again.");
+            throw new ConflictException(ErrorCodes.Lobby.GameServiceFailed);
         }
 
         room.Start(gameSessionId);

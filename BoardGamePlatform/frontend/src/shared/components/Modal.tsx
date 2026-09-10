@@ -1,6 +1,7 @@
 import { Fragment, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { XMarkIcon } from '@heroicons/react/24/outline'
+import { useI18n } from '@/i18n/I18nProvider'
 
 interface ModalProps {
   isOpen: boolean
@@ -11,6 +12,7 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children, className = '' }: ModalProps) {
+  const { t } = useI18n()
   if (!isOpen) return null
 
   return createPortal(
@@ -38,7 +40,7 @@ export function Modal({ isOpen, onClose, title, children, className = '' }: Moda
                 <button
                   onClick={onClose}
                   className="p-1 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
-                  aria-label="Close modal"
+                  aria-label={t('common.closeModal')}
                 >
                   <XMarkIcon className="w-5 h-5" />
                 </button>

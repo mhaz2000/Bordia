@@ -3,6 +3,7 @@ using BuildingBlocks.Application;
 using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
 using BuildingBlocks.Infrastructure.CurrentUser;
+using BuildingBlocks.Domain.Localization;
 using Lobby.Application.Dtos;
 using Lobby.Application.Persistence;
 using Lobby.Application.Realtime;
@@ -48,7 +49,7 @@ public class JoinRoomCommandHandler : IRequestHandler<JoinRoomCommand, Result<Lo
     {
         if (_currentUser.UserId is not { } userId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var room = await _dbContext.Rooms
@@ -58,7 +59,7 @@ public class JoinRoomCommandHandler : IRequestHandler<JoinRoomCommand, Result<Lo
 
         if (room.Status != RoomStatus.Waiting)
         {
-            throw new ConflictException("This room is no longer accepting players.");
+            throw new ConflictException(ErrorCodes.Lobby.RoomNotAccepting);
         }
 
         if (room.GetPlayer(userId) is not null)
@@ -68,7 +69,7 @@ public class JoinRoomCommandHandler : IRequestHandler<JoinRoomCommand, Result<Lo
 
         if (room.Players.Count >= room.MaxPlayers)
         {
-            throw new ConflictException("This room is full.");
+            throw new ConflictException(ErrorCodes.Lobby.RoomFull);
         }
 
         var membership = room.AddPlayer(userId, _currentUser.DisplayName ?? "Player");

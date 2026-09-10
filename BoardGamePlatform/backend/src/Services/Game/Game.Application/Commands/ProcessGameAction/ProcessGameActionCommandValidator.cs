@@ -1,3 +1,4 @@
+using BuildingBlocks.Domain.Localization;
 using FluentValidation;
 
 namespace Game.Application.Commands.ProcessGameAction;
@@ -9,17 +10,22 @@ public class ProcessGameActionCommandValidator : AbstractValidator<ProcessGameAc
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="ProcessGameActionCommandValidator"/> class.
+    /// Validation failures carry catalog codes; the response middleware localizes them.
     /// </summary>
     public ProcessGameActionCommandValidator()
     {
         RuleFor(x => x.SessionId)
-            .NotEmpty();
+            .NotEmpty()
+            .WithMessage(ErrorCodes.Validation.SessionIdRequired);
 
         RuleFor(x => x.ActionType)
             .NotEmpty()
-            .MaximumLength(50);
+            .WithMessage(ErrorCodes.Validation.ActionTypeRequired)
+            .MaximumLength(50)
+            .WithMessage(ErrorCodes.Validation.ActionTypeTooLong);
 
         RuleFor(x => x.Payload)
-            .NotEmpty();
+            .NotEmpty()
+            .WithMessage(ErrorCodes.Validation.PayloadRequired);
     }
 }

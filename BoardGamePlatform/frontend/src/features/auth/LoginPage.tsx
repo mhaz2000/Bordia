@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/shared/hooks/useAuth'
+import { useI18n } from '@/i18n/I18nProvider'
 import { Button } from '@/shared/components/Button'
 import { Input } from '@/shared/components/Input'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
+import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
 
 export function LoginPage() {
   const navigate = useNavigate()
   const { login, isLoggingIn, isLoading } = useAuth()
+  const { t } = useI18n()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -16,14 +19,14 @@ export function LoginPage() {
     e.preventDefault()
     setError('')
     if (!identifier.trim() || !password) {
-      setError('Please enter your email or username and password.')
+      setError(t('auth.enterCredentials'))
       return
     }
     try {
       await login({ identifier, password })
       navigate('/lobby')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      setError(err instanceof Error ? err.message : t('auth.loginFailed'))
     }
   }
 
@@ -39,8 +42,11 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
       <Card className="w-full max-w-md" padding="lg">
         <CardHeader>
-          <CardTitle className="text-2xl text-center">Welcome Back</CardTitle>
-          <p className="text-center text-gray-600 mt-2">Sign in to your account</p>
+          <div className="flex justify-end mb-2">
+            <LanguageSwitcher />
+          </div>
+          <CardTitle className="text-2xl text-center">{t('auth.welcomeBack')}</CardTitle>
+          <p className="text-center text-gray-600 mt-2">{t('auth.signInSubtitle')}</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
@@ -50,16 +56,16 @@ export function LoginPage() {
               </div>
             )}
             <Input
-              label="Email or Username"
+              label={t('auth.emailOrUsername')}
               type="text"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               required
               autoComplete="username"
-              placeholder="you@example.com or your username"
+              placeholder={t('auth.emailOrUsernamePlaceholder')}
             />
             <Input
-              label="Password"
+              label={t('auth.password')}
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -68,14 +74,14 @@ export function LoginPage() {
               placeholder="••••••••"
             />
             <Button type="submit" className="w-full" isLoading={isLoggingIn} size="lg">
-              Sign In
+              {t('common.signIn')}
             </Button>
           </form>
           <div className="mt-6 text-center">
             <p className="text-gray-600">
-              Don't have an account?{' '}
+              {t('auth.noAccount')}{' '}
               <Link to="/register" className="text-blue-600 hover:underline font-medium">
-                Register
+                {t('common.register')}
               </Link>
             </p>
           </div>

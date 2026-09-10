@@ -4,6 +4,7 @@ using BuildingBlocks.Contracts.Events;
 using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
 using BuildingBlocks.Infrastructure.Outbox;
+using BuildingBlocks.Domain.Localization;
 using Identity.Application.Common;
 using Identity.Application.Dtos;
 using Identity.Application.Persistence;
@@ -55,7 +56,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result<Au
 
         if (emailExists)
         {
-            throw new ConflictException($"An account with email '{request.Email}' already exists.");
+            throw new ConflictException(ErrorCodes.Identity.EmailAlreadyExists, request.Email);
         }
 
         var user = User.Create(

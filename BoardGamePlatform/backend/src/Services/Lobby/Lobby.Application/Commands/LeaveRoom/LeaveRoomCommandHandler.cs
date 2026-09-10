@@ -3,6 +3,7 @@ using BuildingBlocks.Application;
 using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
 using BuildingBlocks.Infrastructure.CurrentUser;
+using BuildingBlocks.Domain.Localization;
 using Lobby.Application.Dtos;
 using Lobby.Application.Persistence;
 using Lobby.Application.Realtime;
@@ -49,7 +50,7 @@ public class LeaveRoomCommandHandler : IRequestHandler<LeaveRoomCommand, Result<
     {
         if (_currentUser.UserId is not { } userId)
         {
-            throw new UnauthorizedAccessException("User is not authenticated.");
+            throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
         var room = await _dbContext.Rooms
@@ -59,7 +60,7 @@ public class LeaveRoomCommandHandler : IRequestHandler<LeaveRoomCommand, Result<
 
         if (room.GetPlayer(userId) is null)
         {
-            throw new ConflictException("You are not a member of this room.");
+            throw new ConflictException(ErrorCodes.Lobby.NotMember);
         }
 
         var wasHost = room.HostId == userId;

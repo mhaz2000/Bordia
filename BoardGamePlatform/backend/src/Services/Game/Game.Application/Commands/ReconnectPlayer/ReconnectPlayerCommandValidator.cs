@@ -1,3 +1,4 @@
+using BuildingBlocks.Domain.Localization;
 using FluentValidation;
 
 namespace Game.Application.Commands.ReconnectPlayer;
@@ -9,13 +10,16 @@ public class ReconnectPlayerCommandValidator : AbstractValidator<ReconnectPlayer
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="ReconnectPlayerCommandValidator"/> class.
+    /// Validation failures carry catalog codes; the response middleware localizes them.
     /// </summary>
     public ReconnectPlayerCommandValidator()
     {
         RuleFor(x => x.SessionId)
-            .NotEmpty();
+            .NotEmpty()
+            .WithMessage(ErrorCodes.Validation.SessionIdRequired);
 
         RuleFor(x => x.ConnectionId)
-            .NotEmpty();
+            .NotEmpty()
+            .WithMessage(ErrorCodes.Validation.ConnectionIdRequired);
     }
 }
