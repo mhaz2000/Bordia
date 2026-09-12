@@ -142,7 +142,8 @@ public class ProcessGameActionCommandHandler : IRequestHandler<ProcessGameAction
         {
             SessionId = session.Id,
             ChangeType = GameChangeType.StateUpdated,
-            State = result.NewState
+            State = result.NewState,
+            GameType = session.GameType
         }, cancellationToken);
 
         await _publisher.Publish(new GameStateChanged
@@ -163,6 +164,9 @@ public class ProcessGameActionCommandHandler : IRequestHandler<ProcessGameAction
             }, cancellationToken);
         }
 
-        return Result<GameState>.Success(result.NewState);
+        // Hidden-information games project the state per viewer; engines
+        // without the capability return their full state unchanged.
+        return Result<GameState>.Success(
+            PlayerViewProjection.Project(engine, result.NewState, userId));
     }
 }

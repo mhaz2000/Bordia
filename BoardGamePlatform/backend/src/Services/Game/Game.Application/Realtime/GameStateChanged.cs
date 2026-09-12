@@ -55,6 +55,12 @@ public class GameStateChanged : MediatR.INotification
     public GameState? State { get; init; }
 
     /// <summary>
+    /// The game type of the session, used by the real-time notifier to resolve
+    /// the engine for per-viewer state projection.
+    /// </summary>
+    public string? GameType { get; init; }
+
+    /// <summary>
     /// The user who submitted an action, when applicable.
     /// </summary>
     public Guid? PlayerId { get; init; }

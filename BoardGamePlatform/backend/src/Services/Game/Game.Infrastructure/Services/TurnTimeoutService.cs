@@ -191,7 +191,8 @@ public class TurnTimeoutService : BackgroundService
         {
             SessionId = session.Id,
             ChangeType = GameChangeType.StateUpdated,
-            State = result.NewState
+            State = result.NewState,
+            GameType = session.GameType
         }, cancellationToken);
 
         await publisher.Publish(new GameStateChanged

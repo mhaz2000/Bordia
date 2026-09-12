@@ -31,6 +31,7 @@ public static class ServiceCollectionExtensions
         // Game implementations. Plugin-style runtime loading is deferred; games are
         // registered directly here until a real multi-game need emerges.
         services.AddSingleton<GameEngine.Core.IGame, UNO.UNOGame>();
+        services.AddSingleton<GameEngine.Core.IGame, Silver.SilverGame>();
 
         // Real-time notifier translating Application game-changed notifications into hub calls.
         services.AddScoped<MediatR.INotificationHandler<Game.Application.Realtime.GameStateChanged>, GameRealTimeNotifier>();

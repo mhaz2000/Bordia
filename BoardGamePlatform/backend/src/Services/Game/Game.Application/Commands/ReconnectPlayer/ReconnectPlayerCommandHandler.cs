@@ -3,6 +3,7 @@ using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Results;
 using BuildingBlocks.Infrastructure.CurrentUser;
 using BuildingBlocks.Domain.Localization;
+using Game.Application.Common;
 using Game.Application.Persistence;
 using Game.Application.Realtime;
 using Game.Domain.Entities;
@@ -14,12 +15,14 @@ namespace Game.Application.Commands.ReconnectPlayer;
 
 /// <summary>
 /// Handler that marks the current user's seat as connected and returns the current state.
+/// Hidden-information games receive a per-viewer projection of the state.
 /// </summary>
 public class ReconnectPlayerCommandHandler : IRequestHandler<ReconnectPlayerCommand, Result<GameState>>
 {
     private readonly GameDbContext _dbContext;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUser _currentUser;
+    private readonly IGameEngineProvider _engineProvider;
     private readonly IPublisher _publisher;
 
     /// <summary>
@@ -29,11 +32,13 @@ public class ReconnectPlayerCommandHandler : IRequestHandler<ReconnectPlayerComm
         GameDbContext dbContext,
         IUnitOfWork unitOfWork,
         ICurrentUser currentUser,
+        IGameEngineProvider engineProvider,
         IPublisher publisher)
     {
         _dbContext = dbContext;
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
+        _engineProvider = engineProvider;
         _publisher = publisher;
     }
 
@@ -86,6 +91,8 @@ public class ReconnectPlayerCommandHandler : IRequestHandler<ReconnectPlayerComm
             }, cancellationToken);
         }
 
-        return Result<GameState>.Success(GameState.FromJson(session.CurrentStateJson));
+        var engine = _engineProvider.Get(session.GameType);
+        return Result<GameState>.Success(
+            PlayerViewProjection.Project(engine, GameState.FromJson(session.CurrentStateJson), userId));
     }
 }

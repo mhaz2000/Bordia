@@ -20,6 +20,7 @@ type GameContent = Dict['games']['UNO']
 /** Static per-game theming. Copy comes from the i18n dictionaries. */
 const GAME_THEME: Record<string, { gradient: string; comingSoon?: boolean }> = {
   UNO: { gradient: 'from-red-500 via-orange-500 to-amber-400' },
+  Silver: { gradient: 'from-indigo-500 via-slate-500 to-violet-500' },
   Splendor: { gradient: 'from-emerald-500 via-teal-500 to-cyan-500', comingSoon: true },
 }
 

@@ -5,6 +5,7 @@ import { useAuth } from '@/shared/hooks/useAuth'
 import { useGameStore } from '@/shared/state/gameStore'
 import { gameApi } from '@/shared/api/client'
 import { UnoGameView } from '@/features/game/UnoGameView'
+import { SilverGameView } from '@/features/game/SilverGameView'
 import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
@@ -186,6 +187,14 @@ export function GamePage() {
             onAction={handleAction}
             isSending={isSendingAction}
           />
+        ) : currentState?.gameType === 'Silver' ? (
+          <SilverGameView
+            state={currentState}
+            session={currentSession}
+            userId={user?.id}
+            onAction={handleAction}
+            isSending={isSendingAction}
+          />
         ) : (
           <div className="grid gap-6 lg:grid-cols-4">
             <div className="lg:col-span-3 space-y-6">
@@ -295,8 +304,8 @@ function GamePlayersPanel({ session, currentUserId }: { session: { players: { id
       </CardHeader>
       <CardContent>
         <ul className="space-y-2">
-          {session.players.map((player) => (
-            <li key={player.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
+          {session.players.map((player, index) => (
+            <li key={player.userId || `${player.id}-${index}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${player.userId === currentUserId ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
                 {player.displayName.charAt(0).toUpperCase()}
               </div>

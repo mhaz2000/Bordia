@@ -11,6 +11,7 @@
   </Folder>
   <Folder Name="/src/Games/">
     <Project Path="src/Games/UNO/UNO.csproj" />
+    <Project Path="src/Games/Silver/Silver.csproj" />
   </Folder>
   <Folder Name="/src/Gateway/">
     <Project Path="src/Gateway/Gateway/Gateway.csproj" />
@@ -33,5 +34,8 @@
     <Project Path="src/Services/Lobby/Lobby.Application/Lobby.Application.csproj" />
     <Project Path="src/Services/Lobby/Lobby.Domain/Lobby.Domain.csproj" />
     <Project Path="src/Services/Lobby/Lobby.Infrastructure/Lobby.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="../tests/Silver.Harness/Silver.Harness.csproj" />
   </Folder>
 </Solution>

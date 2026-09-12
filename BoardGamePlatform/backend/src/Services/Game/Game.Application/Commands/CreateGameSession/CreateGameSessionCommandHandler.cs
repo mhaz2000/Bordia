@@ -97,7 +97,8 @@ public class CreateGameSessionCommandHandler : IRequestHandler<CreateGameSession
         {
             SessionId = session.Id,
             ChangeType = GameChangeType.StateUpdated,
-            State = initialState
+            State = initialState,
+            GameType = session.GameType
         }, cancellationToken);
 
         _logger.LogInformation("Game session {SessionId} created for {GameType}",
