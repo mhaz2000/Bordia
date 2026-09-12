@@ -52,4 +52,17 @@ public class LobbyHub : Microsoft.AspNetCore.SignalR.Hub<ILobbyHubClient>
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, LobbyRoomGroups.For(roomId));
     }
+
+    /// <summary>
+    /// Marks the player's seats offline when the connection drops (tab close,
+    /// network loss), so the waiting room presence stays truthful.
+    /// </summary>
+    /// <param name="exception">The exception that ended the connection, if any.</param>
+    public override async Task OnDisconnectedAsync(System.Exception? exception)
+    {
+        await _mediator.Send(new Lobby.Application.Commands.ClearPlayerConnection.ClearPlayerConnectionCommand(
+            Context.ConnectionId));
+
+        await base.OnDisconnectedAsync(exception);
+    }
 }

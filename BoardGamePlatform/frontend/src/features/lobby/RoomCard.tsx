@@ -62,7 +62,7 @@ export function RoomCard({
         <div className="flex gap-1">
           {room.players.slice(0, 4).map((player) => (
             <div
-              key={player.id}
+              key={player.userId}
               className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
                 player.isReady ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
               }`}

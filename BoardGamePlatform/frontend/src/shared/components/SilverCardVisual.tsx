@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import { EyeIcon, MoonIcon, ShieldCheckIcon, SparklesIcon } from '@heroicons/react/24/solid'
 import { useI18n } from '@/i18n/I18nProvider'
 import { cardNameKey, tierOf, TIER_STYLES, type SilverViewCard } from '@/features/game/silver'
+import { SilverCardArt } from './SilverCardArt'
 
 export type SilverCardVisualSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
@@ -19,6 +20,24 @@ const CENTER_VALUE: Record<SilverCardVisualSize, string> = {
   md: 'text-3xl',
   lg: 'text-4xl sm:text-5xl',
   xl: 'text-5xl sm:text-6xl',
+}
+
+/** Character art scale per size (xs stays a plain number - too small for art). */
+const ART_SIZE: Record<SilverCardVisualSize, string> = {
+  xs: 'hidden',
+  sm: 'h-7 w-7',
+  md: 'h-9 w-9',
+  lg: 'h-12 w-12',
+  xl: 'h-14 w-14',
+}
+
+/** Value type when shown beneath the character art. */
+const ART_VALUE: Record<SilverCardVisualSize, string> = {
+  xs: 'text-sm',
+  sm: 'text-[11px]',
+  md: 'text-base',
+  lg: 'text-xl',
+  xl: 'text-2xl',
 }
 
 const NAME_TEXT: Record<SilverCardVisualSize, string> = {
@@ -88,18 +107,27 @@ export function SilverCardVisual({
         {card.Value}
       </span>
 
-      {/* big werewolf count */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={`${CENTER_VALUE[size]} ${tier.accent} font-black leading-none tracking-tight drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`}>
-          {card.Value}
-        </span>
-        {(size === 'lg' || size === 'xl') && (
-          <span className="mt-1 flex items-center gap-1 text-[8px] font-semibold uppercase tracking-widest text-white/60">
-            <MoonIcon className="h-2.5 w-2.5" />
-            {t('silver.werewolves')}
+      {/* character art + werewolf count */}
+      {size === 'xs' ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={`${CENTER_VALUE[size]} ${tier.accent} font-black leading-none tracking-tight drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`}>
+            {card.Value}
           </span>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="absolute inset-x-0 top-3 bottom-4 flex flex-col items-center justify-center gap-1">
+          <SilverCardArt value={card.Value} className={`${ART_SIZE[size]} ${tier.accent}`} />
+          <span className={`${ART_VALUE[size]} ${tier.accent} font-black leading-none tracking-tight drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]`}>
+            {card.Value}
+          </span>
+          {size === 'xl' && (
+            <span className="flex items-center gap-1 text-[8px] font-semibold uppercase tracking-widest text-white/60">
+              <MoonIcon className="h-2.5 w-2.5" />
+              {t('silver.werewolves')}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* character name plate */}
       <span className={`${NAME_TEXT[size]} absolute inset-x-0 bottom-0.5 truncate px-0.5 text-center font-bold text-white/95 drop-shadow`}>

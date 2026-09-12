@@ -19,9 +19,9 @@ interface LobbyState {
   
   // Player actions
   addPlayer: (player: LobbyRoomPlayer) => void
-  removePlayer: (playerId: string) => void
-  updatePlayerReady: (playerId: string, isReady: boolean) => void
-  updatePlayerConnection: (playerId: string, connectionId: string | undefined) => void
+  removePlayer: (userId: string) => void
+  updatePlayerReady: (userId: string, isReady: boolean) => void
+  updatePlayerPresence: (userId: string, isConnected: boolean) => void
   setHost: (hostId: string) => void
   setRoomStatus: (status: LobbyRoom['status'], startedAt?: string) => void
   closeRoom: () => void
@@ -67,35 +67,35 @@ export const useLobbyStore = create<LobbyState>((set) => ({
     }
   }),
 
-  removePlayer: (playerId) => set((state) => {
+  removePlayer: (userId) => set((state) => {
     if (!state.currentRoom) return state
     return {
       currentRoom: {
         ...state.currentRoom,
-        players: state.currentRoom.players.filter((p) => p.id !== playerId),
+        players: state.currentRoom.players.filter((p) => p.userId !== userId),
       },
     }
   }),
 
-  updatePlayerReady: (playerId, isReady) => set((state) => {
+  updatePlayerReady: (userId, isReady) => set((state) => {
     if (!state.currentRoom) return state
     return {
       currentRoom: {
         ...state.currentRoom,
         players: state.currentRoom.players.map((p) =>
-          p.id === playerId ? { ...p, isReady } : p
+          p.userId === userId ? { ...p, isReady } : p
         ),
       },
     }
   }),
 
-  updatePlayerConnection: (playerId, connectionId) => set((state) => {
+  updatePlayerPresence: (userId, isConnected) => set((state) => {
     if (!state.currentRoom) return state
     return {
       currentRoom: {
         ...state.currentRoom,
         players: state.currentRoom.players.map((p) =>
-          p.id === playerId ? { ...p, connectionId } : p
+          p.userId === userId ? { ...p, isConnected } : p
         ),
       },
     }

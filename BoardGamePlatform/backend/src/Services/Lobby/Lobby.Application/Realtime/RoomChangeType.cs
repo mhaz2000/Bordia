@@ -38,5 +38,10 @@ public enum RoomChangeType
     /// <summary>
     /// The game started from this room.
     /// </summary>
-    GameStarted
+    GameStarted,
+
+    /// <summary>
+    /// A player's SignalR connection state changed (joined/left the hub).
+    /// </summary>
+    PresenceChanged
 }

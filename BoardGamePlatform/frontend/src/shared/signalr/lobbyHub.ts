@@ -8,6 +8,7 @@ export interface LobbyHubEvents {
   onHostChanged: (roomId: string, newHostId: string) => void
   onRoomClosed: (roomId: string) => void
   onGameStarted: (roomId: string, gameSessionId: string) => void
+  onPresenceChanged: (roomId: string, playerId: string, isConnected: boolean) => void
 }
 
 type EventHandlers = Partial<LobbyHubEvents>
@@ -83,6 +84,23 @@ class LobbyHubClient {
 
     this.connection.on('GameStarted', (roomId: string, gameSessionId: string) => {
       this.handlers.onGameStarted?.(roomId, gameSessionId)
+    })
+
+    this.connection.on('PresenceChanged', (roomId: string, playerId: string, isConnected: boolean) => {
+      this.handlers.onPresenceChanged?.(roomId, playerId, isConnected)
+    })
+
+    // After an automatic reconnect the connection id changed: re-join the
+    // room so the hub records the new id (otherwise the seat would show
+    // offline and stop receiving group updates).
+    this.connection.onreconnected(async () => {
+      if (this.currentRoomId) {
+        try {
+          await this.connection?.invoke('JoinRoom', this.currentRoomId)
+        } catch (err) {
+          console.error('[LobbyHub] Re-join after reconnect failed:', err)
+        }
+      }
     })
 
     this.connection.onclose((error) => {

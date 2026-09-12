@@ -16,12 +16,12 @@ export interface LobbyRoom {
 }
 
 export interface LobbyRoomPlayer {
-  id: string
   userId: string
   displayName: string
   isReady: boolean
   joinedAt: string
-  connectionId?: string
+  /** Live SignalR presence from the server (not the raw connection id). */
+  isConnected: boolean
 }
 
 export interface CreateRoomRequest {

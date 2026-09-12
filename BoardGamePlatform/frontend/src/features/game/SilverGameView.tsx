@@ -1342,7 +1342,7 @@ export function SilverGameView({ state, session, userId, onAction, isSending }: 
                   AmuletProtected: false,
                   GuardedByCardId: null,
                 }}
-                size="xs"
+                size="sm"
               />
               <div className="min-w-0">
                 <p className="text-sm font-bold text-gray-900">

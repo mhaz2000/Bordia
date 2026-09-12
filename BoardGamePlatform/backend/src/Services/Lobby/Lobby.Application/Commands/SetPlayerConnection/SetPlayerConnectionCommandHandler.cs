@@ -22,6 +22,7 @@ public class SetPlayerConnectionCommandHandler
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUser _currentUser;
     private readonly IMapper _mapper;
+    private readonly IPublisher _publisher;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SetPlayerConnectionCommandHandler"/> class.
@@ -30,12 +31,14 @@ public class SetPlayerConnectionCommandHandler
         LobbyDbContext dbContext,
         IUnitOfWork unitOfWork,
         ICurrentUser currentUser,
-        IMapper mapper)
+        IMapper mapper,
+        IPublisher publisher)
     {
         _dbContext = dbContext;
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
         _mapper = mapper;
+        _publisher = publisher;
     }
 
     /// <inheritdoc />
@@ -56,6 +59,17 @@ public class SetPlayerConnectionCommandHandler
         room.GetPlayer(userId)?.SetConnectionId(request.ConnectionId);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Tell the room group that this player is now live, so the online
+        // indicators update without waiting for a full refetch.
+        await _publisher.Publish(new Lobby.Application.Realtime.LobbyRoomChanged
+        {
+            RoomId = room.Id,
+            ChangeType = Lobby.Application.Realtime.RoomChangeType.PresenceChanged,
+            PlayerId = userId,
+            IsConnected = true,
+            PlayerCount = room.Players.Count
+        }, cancellationToken);
 
         return Result<LobbyRoomDto>.Success(_mapper.Map<LobbyRoomDto>(room));
     }

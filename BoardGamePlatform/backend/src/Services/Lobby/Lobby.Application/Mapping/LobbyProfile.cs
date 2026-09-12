@@ -19,6 +19,9 @@ public class LobbyProfile : Profile
                 d => d.Status,
                 opt => opt.MapFrom(s => s.Status.ToString()));
 
-        CreateMap<RoomPlayer, LobbyRoomPlayerDto>();
+        CreateMap<RoomPlayer, LobbyRoomPlayerDto>()
+            .ForMember(
+                d => d.IsConnected,
+                opt => opt.MapFrom(s => !string.IsNullOrEmpty(s.ConnectionId)));
     }
 }

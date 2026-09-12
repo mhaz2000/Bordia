@@ -24,4 +24,9 @@ public class LobbyRoomPlayerDto
     /// UTC timestamp when the player joined.
     /// </summary>
     public DateTime JoinedAt { get; set; }
+
+    /// <summary>
+    /// Whether the player currently has a live SignalR connection to the room.
+    /// </summary>
+    public bool IsConnected { get; set; }
 }

@@ -93,16 +93,14 @@ export function useLobby() {
     const unsubscribers = [
       lobbyHub.on('onPlayerJoined', (roomId: string, playerId: string, displayName: string, _playerCount: number) => {
         const currentRoom = useLobbyStore.getState().currentRoom
-        if (currentRoom?.id === roomId) {
-          const newPlayer = {
-            id: playerId,
+        if (currentRoom?.id === roomId && !currentRoom.players.some((p) => p.userId === playerId)) {
+          useLobbyStore.getState().addPlayer({
             userId: playerId,
             displayName,
             isReady: false,
             joinedAt: new Date().toISOString(),
-          }
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ;(currentRoom as any).players.push(newPlayer)
+            isConnected: true,
+          })
         }
       }),
       lobbyHub.on('onPlayerLeft', (roomId: string, playerId: string, _playerCount: number) => {
@@ -113,6 +111,11 @@ export function useLobby() {
       lobbyHub.on('onPlayerReadyChanged', (roomId: string, playerId: string, isReady: boolean) => {
         if (useLobbyStore.getState().currentRoom?.id === roomId) {
           useLobbyStore.getState().updatePlayerReady(playerId, isReady)
+        }
+      }),
+      lobbyHub.on('onPresenceChanged', (roomId: string, playerId: string, isConnected: boolean) => {
+        if (useLobbyStore.getState().currentRoom?.id === roomId) {
+          useLobbyStore.getState().updatePlayerPresence(playerId, isConnected)
         }
       }),
       lobbyHub.on('onHostChanged', (roomId: string, newHostId: string) => {

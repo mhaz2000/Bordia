@@ -69,6 +69,11 @@ public class LobbyRealTimeNotifier : INotificationHandler<LobbyRoomChanged>
                 notification.RoomId,
                 notification.GameSessionId!.Value),
 
+            RoomChangeType.PresenceChanged => clients.PresenceChanged(
+                notification.RoomId,
+                notification.PlayerId!.Value,
+                notification.IsConnected),
+
             _ => Task.CompletedTask
         });
     }

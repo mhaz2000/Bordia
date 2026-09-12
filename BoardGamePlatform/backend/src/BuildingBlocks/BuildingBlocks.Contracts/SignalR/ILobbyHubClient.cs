@@ -35,4 +35,9 @@ public interface ILobbyHubClient
     /// Notifies clients that the game is starting from this room.
     /// </summary>
     Task GameStarted(Guid roomId, Guid gameSessionId);
+
+    /// <summary>
+    /// Notifies clients that a player's connection state changed.
+    /// </summary>
+    Task PresenceChanged(Guid roomId, Guid playerId, bool isConnected);
 }

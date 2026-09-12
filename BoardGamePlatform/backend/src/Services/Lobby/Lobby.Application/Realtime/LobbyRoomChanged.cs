@@ -39,6 +39,11 @@ public class LobbyRoomChanged : INotification
     public bool IsReady { get; init; }
 
     /// <summary>
+    /// The affected player's new connection state, for <see cref="RoomChangeType.PresenceChanged"/>.
+    /// </summary>
+    public bool IsConnected { get; init; }
+
+    /// <summary>
     /// The new host id, when the host changed.
     /// </summary>
     public Guid? NewHostId { get; init; }
