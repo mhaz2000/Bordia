@@ -46,10 +46,11 @@ public class GetRoomListQueryHandler : IRequestHandler<GetRoomListQuery, Result<
             return Result<List<LobbyRoomDto>>.Success(cached);
         }
 
+        // Private rooms are invite-only (entered by room code), never listed.
         var rooms = await _dbContext.Rooms
             .AsNoTracking()
             .Include(r => r.Players)
-            .Where(r => r.Status == RoomStatus.Waiting && !r.IsDeleted)
+            .Where(r => r.Status == RoomStatus.Waiting && !r.IsDeleted && !r.IsPrivate)
             .OrderBy(r => r.CreatedAt)
             .ToListAsync(cancellationToken);
 

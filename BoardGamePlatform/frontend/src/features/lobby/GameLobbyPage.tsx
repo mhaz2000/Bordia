@@ -9,6 +9,7 @@ import {
   ArrowPathIcon,
   ClockIcon,
   FlagIcon,
+  KeyIcon,
   UserGroupIcon,
   PlusIcon,
   LockClosedIcon,
@@ -55,7 +56,7 @@ export function GameLobbyPage() {
   const isUno = gameTypeParam === 'UNO'
   const { t } = useI18n()
   const navigate = useNavigate()
-  const { createRoom, joinRoom, isCreating } = useLobby()
+  const { createRoom, joinRoom, joinRoomByCode, joinRoomByCodePending, isCreating } = useLobby()
   const { user } = useAuth()
 
   const { data: games = [] } = useQuery({
@@ -87,6 +88,7 @@ export function GameLobbyPage() {
   const [isPrivate, setIsPrivate] = useState(false)
   const [createError, setCreateError] = useState('')
   const [joinError, setJoinError] = useState('')
+  const [joinCode, setJoinCode] = useState('')
 
   const openCreateModal = () => {
     setName('')
@@ -124,6 +126,22 @@ export function GameLobbyPage() {
       if (!isMember) {
         await joinRoom(room.id)
       }
+      navigate(`/lobby/${room.id}`)
+    } catch (err) {
+      setJoinError(err instanceof Error ? err.message : t('gameLobby.joinFailed'))
+    }
+  }
+
+  const handleJoinByCode = async () => {
+    const code = joinCode.trim().toUpperCase()
+    if (code.length !== 6) {
+      setJoinError(t('gameLobby.joinCodeInvalid'))
+      return
+    }
+    setJoinError('')
+    try {
+      const room = await joinRoomByCode(code)
+      setJoinCode('')
       navigate(`/lobby/${room.id}`)
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : t('gameLobby.joinFailed'))
@@ -321,13 +339,41 @@ export function GameLobbyPage() {
 
             {/* Open rooms */}
             <section id="open-rooms" className="space-y-4 scroll-mt-24">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <SectionTitle title={t('gameLobby.openTables')} pulse />
-                <Button variant="secondary" size="sm" onClick={openCreateModal} isLoading={isCreating}>
-                  <PlusIcon className="w-4 h-4 me-1" />
-                  {t('gameLobby.newRoom')}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-1 ps-3 shadow-sm">
+                    <KeyIcon className="h-4 w-4 text-gray-400" />
+                    <input
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleJoinByCode()
+                        }
+                      }}
+                      maxLength={6}
+                      placeholder={t('gameLobby.joinCodePlaceholder')}
+                      aria-label={t('gameLobby.joinCodeBtn')}
+                      className="w-24 bg-transparent py-1 font-mono text-sm font-bold tracking-widest text-gray-900 uppercase placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400 placeholder:uppercase focus:outline-none"
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleJoinByCode}
+                      isLoading={joinRoomByCodePending}
+                    >
+                      {t('gameLobby.joinCodeBtn')}
+                    </Button>
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={openCreateModal} isLoading={isCreating}>
+                    <PlusIcon className="w-4 h-4 me-1" />
+                    {t('gameLobby.newRoom')}
+                  </Button>
+                </div>
               </div>
+              <p className="text-xs text-gray-400">{t('gameLobby.joinCodeHint')}</p>
 
               {roomsLoading && gameRooms.length === 0 ? (
                 <div className="flex justify-center py-12">

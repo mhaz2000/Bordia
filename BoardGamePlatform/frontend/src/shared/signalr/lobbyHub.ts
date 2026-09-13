@@ -9,6 +9,7 @@ export interface LobbyHubEvents {
   onRoomClosed: (roomId: string) => void
   onGameStarted: (roomId: string, gameSessionId: string) => void
   onPresenceChanged: (roomId: string, playerId: string, isConnected: boolean) => void
+  onPlayerKicked: (roomId: string, playerId: string) => void
 }
 
 type EventHandlers = Partial<LobbyHubEvents>
@@ -88,6 +89,10 @@ class LobbyHubClient {
 
     this.connection.on('PresenceChanged', (roomId: string, playerId: string, isConnected: boolean) => {
       this.handlers.onPresenceChanged?.(roomId, playerId, isConnected)
+    })
+
+    this.connection.on('PlayerKicked', (roomId: string, playerId: string) => {
+      this.handlers.onPlayerKicked?.(roomId, playerId)
     })
 
     // After an automatic reconnect the connection id changed: re-join the

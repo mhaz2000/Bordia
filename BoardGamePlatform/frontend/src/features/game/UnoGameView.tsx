@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
-import { ArrowPathIcon, ClockIcon, PlayIcon, TrophyIcon } from '@heroicons/react/24/outline'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowDownIcon, ArrowPathIcon, ClockIcon, ExclamationTriangleIcon, PlayIcon, TrophyIcon } from '@heroicons/react/24/outline'
 import type { GameSession, GameState } from '@/shared/api/game'
 import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { useCountdown, useNow } from '@/shared/hooks/useCountdown'
+import { useToastStore } from '@/shared/state/toastStore'
 import {
   CARD_HEX,
   COLOR_CHOICES,
@@ -36,10 +37,46 @@ interface UnoGameViewProps {
 
 export function UnoGameView({ state, session, userId, onAction, isSending }: UnoGameViewProps) {
   const { t } = useI18n()
+  const pushToast = useToastStore((s) => s.push)
+  const lastEventCount = useRef<number | null>(null)
+  const flashSeq = useRef(0)
+  const [deckFlash, setDeckFlash] = useState<{ id: number; text: string } | null>(null)
   const [wildPick, setWildPick] = useState<UnoCard | null>(null)
   const [confirmDraw, setConfirmDraw] = useState(false)
 
   const uno = useMemo(() => parseUnoState(state), [state])
+
+  // Toast the Wild Draw Four challenge outcomes (success: the offender draws
+  // 4; failure: the challenger draws 6) to every seat, so the verdict is
+  // impossible to miss. Only events appended after mount are announced.
+  useEffect(() => {
+    if (!uno) return
+    const log: string[] = uno.EventLog ?? []
+    if (lastEventCount.current === null) {
+      lastEventCount.current = log.length
+      return
+    }
+    if (log.length > lastEventCount.current) {
+      for (const entry of log.slice(lastEventCount.current)) {
+        let code = ''
+        try {
+          code = String((JSON.parse(entry) as { c?: string })?.c ?? '')
+        } catch {
+          continue
+        }
+        if (code === 'challengeSuccess') pushToast(formatEvent(entry, t), 'warning')
+        else if (code === 'challengeFailed') pushToast(formatEvent(entry, t), 'error')
+        else if (code === 'drewCard' || code === 'drewUnplayable' || code === 'acceptedDraw' || code === 'reshuffled') {
+          // Card-draw moments get a brief bubble over the draw pile so every
+          // opponent registers the shrinking deck (low-deck color prediction).
+          const id = ++flashSeq.current
+          setDeckFlash({ id, text: formatEvent(entry, t) })
+          window.setTimeout(() => setDeckFlash((f) => (f?.id === id ? null : f)), 2800)
+        }
+      }
+    }
+    lastEventCount.current = log.length
+  }, [uno, pushToast, t])
 
   if (!uno) {
     return (
@@ -206,11 +243,20 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
             className={`group relative flex flex-col items-center gap-2 ${canDraw ? 'cursor-pointer' : 'cursor-default'}`}
           >
             <div className="relative">
+              {deckFlash && (
+                <div key={`flash-${deckFlash.id}`} className="pointer-events-none absolute -top-12 inset-x-0 z-30 flex justify-center">
+                  <span className="animate-deal-pop flex w-max items-center gap-1.5 rounded-full bg-slate-900/95 px-3 py-1.5 shadow-xl ring-1 ring-amber-300/50">
+                    <ArrowDownIcon className="h-3.5 w-3.5 text-amber-300" />
+                    <span className="text-[11px] font-bold text-amber-100">{deckFlash.text}</span>
+                  </span>
+                </div>
+              )}
+              {deckFlash && <span className="absolute -inset-2 animate-ping rounded-2xl bg-amber-300/20" />}
               {/* stacked backs */}
               <UnoCardBackVisual className="absolute inset-0 translate-x-1.5 translate-y-1.5 rotate-3 opacity-60" size="xl" />
               <UnoCardBackVisual className="absolute inset-0 translate-x-0.5 translate-y-0.5 -rotate-2 opacity-80" size="xl" />
               <UnoCardBackVisual
-                className={`relative transition-transform ${canDraw ? 'group-hover:-translate-y-3 group-hover:shadow-[0_0_25px_rgba(251,191,36,0.45)]' : ''}`}
+                className={`relative transition-transform ${deckFlash ? '-translate-y-1.5 shadow-[0_0_28px_rgba(251,191,36,0.65)]' : ''} ${canDraw ? 'group-hover:-translate-y-3 group-hover:shadow-[0_0_25px_rgba(251,191,36,0.45)]' : ''}`}
                 size="xl"
               />
             </div>
@@ -306,6 +352,12 @@ export function UnoGameView({ state, session, userId, onAction, isSending }: Uno
                   <p className="mt-0.5 text-[11px] text-rose-200/70">{t('uno.playNotAllowed')}</p>
                 )}
               </>
+            )}
+            {canChallenge && (
+              <p className="mx-auto mt-2 flex max-w-sm items-start justify-center gap-1.5 rounded-xl bg-amber-400/15 px-3 py-1.5 text-center text-[11px] font-medium leading-snug text-amber-200">
+                <ExclamationTriangleIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {t('uno.challengeHint', { color: colorNameLocalized(activeColor, t) })}
+              </p>
             )}
             <div className="mt-2 flex justify-center gap-2">
               {canChallenge && (

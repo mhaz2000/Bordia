@@ -77,7 +77,7 @@ public class KickPlayerCommandHandler : IRequestHandler<KickPlayerCommand, Resul
         await _publisher.Publish(new LobbyRoomChanged
         {
             RoomId = room.Id,
-            ChangeType = RoomChangeType.PlayerLeft,
+            ChangeType = RoomChangeType.PlayerKicked,
             PlayerId = request.PlayerId,
             PlayerCount = room.Players.Count
         }, cancellationToken);

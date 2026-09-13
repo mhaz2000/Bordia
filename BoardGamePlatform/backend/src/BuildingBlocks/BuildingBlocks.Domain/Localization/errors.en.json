@@ -35,6 +35,8 @@
   "lobby.allMustBeReady": "All players must be ready before starting.",
   "lobby.twoPlayersRequired": "At least two players are required to start.",
   "lobby.roomNotStartable": "This room is not in a startable state.",
+  "lobby.roomIsPrivate": "This room is private - join with its room code.",
+  "lobby.roomCodeNotFound": "No waiting room was found with that code.",
   "lobby.gameServiceFailed": "The game service could not start a session. Please try again.",
 
   "game.notAccepting": "This game is not accepting actions right now.",
@@ -113,6 +115,7 @@
   "validation.currentPasswordRequired": "Current password is required.",
   "validation.newPasswordDiffers": "New password must differ from the current password.",
   "validation.roomIdRequired": "Room id is required.",
+  "validation.roomCodeRequired": "Room code is required.",
   "validation.playerIdRequired": "Player id is required.",
   "validation.connectionIdRequired": "Connection id is required.",
   "validation.sessionIdRequired": "Session id is required.",

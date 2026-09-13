@@ -91,7 +91,27 @@ public class RoomsController : ControllerBase
         Guid id,
         CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new JoinRoomCommand(id), cancellationToken);
+        var result = await _mediator.Send(new JoinRoomCommand(RoomId: id), cancellationToken);
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Joins the current user to a room by its public room code. This is the
+    /// invitation path and the only way to enter a private room.
+    /// </summary>
+    /// <param name="request">The room code to join.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <response code="200">The updated room.</response>
+    /// <response code="404">No waiting room carries that code.</response>
+    [HttpPost("rooms/join-by-code")]
+    [ProducesResponseType(typeof(LobbyRoomDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> JoinByCode(
+        [FromBody] JoinByCodeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new JoinRoomCommand(Code: request.Code, AllowPrivate: true),
+            cancellationToken);
         return Ok(result.Value);
     }
 
@@ -211,3 +231,9 @@ public class RoomsController : ControllerBase
         return Ok(result.Value);
     }
 }
+
+/// <summary>
+/// Body of the join-by-code endpoint.
+/// </summary>
+/// <param name="Code">The 6-character room code.</param>
+public record JoinByCodeRequest(string Code);

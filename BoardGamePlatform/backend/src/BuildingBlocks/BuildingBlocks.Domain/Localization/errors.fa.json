@@ -35,6 +35,8 @@
   "lobby.allMustBeReady": "همه بازیکنان باید قبل از شروع آماده باشند.",
   "lobby.twoPlayersRequired": "برای شروع حداقل دو بازیکن لازم است.",
   "lobby.roomNotStartable": "این اتاق در وضعیت قابل شروع نیست.",
+  "lobby.roomIsPrivate": "این اتاق خصوصی است - با کد اتاق به آن بپیوندید.",
+  "lobby.roomCodeNotFound": "اتاق در انتظار با این کد پیدا نشد.",
   "lobby.gameServiceFailed": "سرویس بازی نتوانست جلسه بسازد. دوباره تلاش کنید.",
 
   "game.notAccepting": "این بازی در حال حاضر اکشن قبول نمی‌کند.",
@@ -113,6 +115,7 @@
   "validation.currentPasswordRequired": "رمز عبور فعلی الزامی است.",
   "validation.newPasswordDiffers": "رمز عبور جدید باید با رمز عبور فعلی متفاوت باشد.",
   "validation.roomIdRequired": "شناسه اتاق الزامی است.",
+  "validation.roomCodeRequired": "کد اتاق الزامی است.",
   "validation.playerIdRequired": "شناسه بازیکن الزامی است.",
   "validation.connectionIdRequired": "شناسه اتصال الزامی است.",
   "validation.sessionIdRequired": "شناسه جلسه الزامی است.",

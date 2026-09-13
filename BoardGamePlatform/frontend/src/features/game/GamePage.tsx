@@ -10,6 +10,7 @@ import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
 import { ArrowRightOnRectangleIcon, PauseIcon, PlayIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { Toaster } from '@/shared/components/Toaster'
 import { useI18n } from '@/i18n/I18nProvider'
 import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
 import { useGameInfo } from '@/features/lobby/gameMeta'
@@ -138,6 +139,7 @@ export function GamePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Toaster />
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">

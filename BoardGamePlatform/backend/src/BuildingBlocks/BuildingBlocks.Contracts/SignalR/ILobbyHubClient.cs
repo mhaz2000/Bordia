@@ -40,4 +40,10 @@ public interface ILobbyHubClient
     /// Notifies clients that a player's connection state changed.
     /// </summary>
     Task PresenceChanged(Guid roomId, Guid playerId, bool isConnected);
+
+    /// <summary>
+    /// Notifies the room that the host removed a player (the removed client
+    /// uses this to leave with an explanatory message).
+    /// </summary>
+    Task PlayerKicked(Guid roomId, Guid playerId);
 }

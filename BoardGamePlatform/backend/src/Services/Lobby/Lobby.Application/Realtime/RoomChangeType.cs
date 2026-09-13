@@ -43,5 +43,11 @@ public enum RoomChangeType
     /// <summary>
     /// A player's SignalR connection state changed (joined/left the hub).
     /// </summary>
-    PresenceChanged
+    PresenceChanged,
+
+    /// <summary>
+    /// The host removed a player from the room (distinct from a voluntary
+    /// leave, so the removed client can show why it left).
+    /// </summary>
+    PlayerKicked
 }

@@ -49,6 +49,9 @@ export function RoomPage() {
     isStarting,
   } = useLobby()
   const { user, isAuthenticated } = useAuth()
+  const kickedRoomId = useLobbyStore((s) => s.kickedRoomId)
+  const setKickedRoomId = useLobbyStore((s) => s.setKickedRoomId)
+  const wasKicked = kickedRoomId === roomId
   const theme = useGameInfo(currentRoom?.gameType ?? '')
   const [showKickModal, setShowKickModal] = useState<{ playerId: string; displayName: string } | null>(null)
   const [showTransferModal, setShowTransferModal] = useState<{ playerId: string; displayName: string } | null>(null)
@@ -105,6 +108,11 @@ export function RoomPage() {
     leaveRoomSignalR(roomId).catch(() => {})
     navigate('/lobby')
   }, [currentRoom?.status, roomId, leaveRoomSignalR, navigate])
+
+  // Kicked by the host: drop the hub group (the overlay below explains and exits).
+  useEffect(() => {
+    if (wasKicked) leaveRoomSignalR(roomId).catch(() => {})
+  }, [wasKicked, roomId, leaveRoomSignalR])
 
   const handleLeave = async () => {
     await leaveRoom(roomId)
@@ -187,6 +195,27 @@ export function RoomPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 pb-16">
+      {wasKicked && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-md text-center" padding="lg">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
+              <ArrowRightOnRectangleIcon className="h-7 w-7 text-red-500" />
+            </div>
+            <h2 className="mt-4 text-lg font-bold text-gray-900">{t('room.kickedTitle')}</h2>
+            <p className="mt-1 text-gray-500">{t('room.kickedDetail')}</p>
+            <Button
+              variant="primary"
+              className="mt-6 w-full"
+              onClick={() => {
+                setKickedRoomId(null)
+                navigate('/lobby')
+              }}
+            >
+              {t('common.backToLobby')}
+            </Button>
+          </Card>
+        </div>
+      )}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">

@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuth } from '@/shared/hooks/useAuth'
+import { useSessionMaintenance } from '@/shared/hooks/useSessionMaintenance'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { RegisterPage } from '@/features/auth/RegisterPage'
 import { LobbyPage } from '@/features/lobby/LobbyPage'
@@ -14,6 +15,7 @@ function PublicLayout() {
 
 function PrivateLayout() {
   const { isAuthenticated, isLoading, initializeAuth } = useAuth()
+  useSessionMaintenance()
 
   useEffect(() => {
     initializeAuth()

@@ -7,9 +7,12 @@ interface LobbyState {
   isLoading: boolean
   error: string | null
   currentGameSessionId: string | null
+  /** Room the host removed us from (drives the RoomPage "removed" overlay). */
+  kickedRoomId: string | null
 
   setCurrentRoom: (room: LobbyRoom | null) => void
   setGameSessionId: (sessionId: string | null) => void
+  setKickedRoomId: (roomId: string | null) => void
   setRooms: (rooms: LobbyRoom[]) => void
   addRoom: (room: LobbyRoom) => void
   removeRoom: (roomId: string) => void
@@ -33,10 +36,13 @@ export const useLobbyStore = create<LobbyState>((set) => ({
   isLoading: false,
   error: null,
   currentGameSessionId: null,
+  kickedRoomId: null,
 
   setCurrentRoom: (room) => set({ currentRoom: room }),
 
   setGameSessionId: (sessionId) => set({ currentGameSessionId: sessionId }),
+
+  setKickedRoomId: (roomId) => set({ kickedRoomId: roomId }),
 
   setRooms: (rooms) => set({ rooms }),
 

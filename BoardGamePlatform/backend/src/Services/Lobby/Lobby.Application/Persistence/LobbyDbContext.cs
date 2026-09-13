@@ -64,7 +64,11 @@ public class LobbyDbContext : AppDbContext
         modelBuilder.Entity<RoomPlayer>(entity =>
         {
             entity.ToTable("room_players");
-            entity.HasIndex(p => new { p.RoomId, p.UserId }).IsUnique();
+            // Partial like the room-code index: a kicked membership is
+            // soft-deleted, and the same user must be able to rejoin.
+            entity.HasIndex(p => new { p.RoomId, p.UserId })
+                .IsUnique()
+                .HasFilter("\"is_deleted\" = false");
         });
 
         modelBuilder.Entity<RoomSettings>(entity =>

@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLobbyStore } from '@/shared/state/lobbyStore'
+import { useAuthStore } from '@/shared/state/authStore'
 import { lobbyApi } from '@/shared/api/client'
 import { lobbyHub } from '@/shared/signalr/lobbyHub'
 
@@ -34,6 +35,16 @@ export function useLobby() {
 
   const joinRoomMutation = useMutation({
     mutationFn: (roomId: string) => lobbyApi.joinRoom(roomId),
+    retry: 0,
+    onSuccess: (room) => {
+      setCurrentRoom(room)
+      queryClient.invalidateQueries({ queryKey: ['lobby', 'rooms'] })
+    },
+  })
+
+  const joinByCodeMutation = useMutation({
+    mutationFn: (code: string) => lobbyApi.joinRoomByCode(code),
+    retry: 0,
     onSuccess: (room) => {
       setCurrentRoom(room)
       queryClient.invalidateQueries({ queryKey: ['lobby', 'rooms'] })
@@ -118,6 +129,14 @@ export function useLobby() {
           useLobbyStore.getState().updatePlayerPresence(playerId, isConnected)
         }
       }),
+      lobbyHub.on('onPlayerKicked', (roomId: string, playerId: string) => {
+        const store = useLobbyStore.getState()
+        if (store.currentRoom?.id !== roomId) return
+        store.removePlayer(playerId)
+        if (playerId === useAuthStore.getState().user?.id) {
+          store.setKickedRoomId(roomId)
+        }
+      }),
       lobbyHub.on('onHostChanged', (roomId: string, newHostId: string) => {
         if (useLobbyStore.getState().currentRoom?.id === roomId) {
           useLobbyStore.getState().setHost(newHostId)
@@ -158,6 +177,8 @@ export function useLobby() {
     error,
     createRoom: createRoomMutation.mutateAsync,
     joinRoom: joinRoomMutation.mutateAsync,
+    joinRoomByCode: joinByCodeMutation.mutateAsync,
+    joinRoomByCodePending: joinByCodeMutation.isPending,
     leaveRoom: leaveRoomMutation.mutateAsync,
     getRoom: (id: string) => lobbyApi.getRoom(id),
     setCurrentRoom,

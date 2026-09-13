@@ -56,6 +56,8 @@ public static class ErrorCodes
         public const string TwoPlayersRequired = "lobby.twoPlayersRequired";
         public const string RoomNotStartable = "lobby.roomNotStartable";
         public const string GameServiceFailed = "lobby.gameServiceFailed";
+        public const string RoomIsPrivate = "lobby.roomIsPrivate";
+        public const string RoomCodeNotFound = "lobby.roomCodeNotFound";
     }
 
     /// <summary>Game service codes.</summary>
@@ -85,6 +87,7 @@ public static class ErrorCodes
         public const string CurrentPasswordRequired = "validation.currentPasswordRequired";
         public const string NewPasswordDiffers = "validation.newPasswordDiffers";
         public const string RoomIdRequired = "validation.roomIdRequired";
+        public const string RoomCodeRequired = "validation.roomCodeRequired";
         public const string PlayerIdRequired = "validation.playerIdRequired";
         public const string ConnectionIdRequired = "validation.connectionIdRequired";
         public const string SessionIdRequired = "validation.sessionIdRequired";

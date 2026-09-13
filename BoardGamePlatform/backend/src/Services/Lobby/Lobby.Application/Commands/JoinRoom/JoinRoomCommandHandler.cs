@@ -52,10 +52,21 @@ public class JoinRoomCommandHandler : IRequestHandler<JoinRoomCommand, Result<Lo
             throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
-        var room = await _dbContext.Rooms
-            .Include(r => r.Players)
-            .FirstOrDefaultAsync(r => r.Id == request.RoomId && !r.IsDeleted, cancellationToken)
-            ?? throw new NotFoundException(nameof(Room), request.RoomId);
+        var code = request.Code?.Trim().ToUpperInvariant();
+        var room = request switch
+        {
+            { RoomId: { } rid } => await _dbContext.Rooms
+                .Include(r => r.Players)
+                .FirstOrDefaultAsync(r => r.Id == rid && !r.IsDeleted, cancellationToken)
+                ?? throw new NotFoundException(nameof(Room), rid),
+            _ when !string.IsNullOrEmpty(code) => await _dbContext.Rooms
+                .Include(r => r.Players)
+                .FirstOrDefaultAsync(
+                    r => r.RoomCode == code && r.Status == RoomStatus.Waiting && !r.IsDeleted,
+                    cancellationToken)
+                ?? throw new ConflictException(ErrorCodes.Lobby.RoomCodeNotFound),
+            _ => throw new ConflictException(ErrorCodes.Lobby.RoomNotAccepting),
+        };
 
         if (room.Status != RoomStatus.Waiting)
         {
@@ -65,6 +76,13 @@ public class JoinRoomCommandHandler : IRequestHandler<JoinRoomCommand, Result<Lo
         if (room.GetPlayer(userId) is not null)
         {
             return Result<LobbyRoomDto>.Success(_mapper.Map<LobbyRoomDto>(room));
+        }
+
+        // Private rooms are invite-only: they never appear in the public list
+        // and can only be entered with the room code (AllowPrivate path).
+        if (room.IsPrivate && !request.AllowPrivate)
+        {
+            throw new ConflictException(ErrorCodes.Lobby.RoomIsPrivate);
         }
 
         if (room.Players.Count >= room.MaxPlayers)

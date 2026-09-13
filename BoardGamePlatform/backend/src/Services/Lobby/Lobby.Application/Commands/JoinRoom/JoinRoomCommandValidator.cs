@@ -16,6 +16,16 @@ public class JoinRoomCommandValidator : AbstractValidator<JoinRoomCommand>
     {
         RuleFor(x => x.RoomId)
             .NotEmpty()
+            .When(x => string.IsNullOrWhiteSpace(x.Code))
             .WithMessage(ErrorCodes.Validation.RoomIdRequired);
+
+        RuleFor(x => x.Code)
+            .NotEmpty()
+            .When(x => x.RoomId is null)
+            .WithMessage(ErrorCodes.Validation.RoomCodeRequired);
+
+        RuleFor(x => x.Code)
+            .MaximumLength(12)
+            .When(x => !string.IsNullOrWhiteSpace(x.Code));
     }
 }

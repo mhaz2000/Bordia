@@ -29,7 +29,44 @@ import type {
 
 const API_BASE = (import.meta as any).env?.VITE_API_BASE || '/api'
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+/** Auth endpoints identified by submitted credentials - a 401 there is a
+ *  wrong password / bad token, not an expiring session. */
+function isCredentialPath(path: string): boolean {
+  return ['/identity/login', '/identity/register', '/identity/refresh', '/identity/logout'].some((p) => path.startsWith(p))
+}
+
+let refreshInFlight: Promise<boolean> | null = null
+
+/**
+ * Exchanges the persisted refresh token for a new session. The server rotates
+ * one-time-use refresh tokens (replay revokes the family), so concurrent
+ * callers share a single in-flight exchange instead of racing duplicates.
+ */
+export function refreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const refreshToken = useAuthStore.getState().refreshToken
+      if (!refreshToken) return false
+      try {
+        const response = await fetch(`${API_BASE}/identity/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        })
+        if (!response.ok) return false
+        const data = (await response.json()) as AuthResponse
+        useAuthStore.getState().setAuth(data)
+        return true
+      } catch {
+        return false
+      }
+    })()
+    void refreshInFlight.then(() => { refreshInFlight = null }, () => { refreshInFlight = null })
+  }
+  return refreshInFlight
+}
+
+async function request<T>(path: string, options: RequestInit = {}, isRetry = false): Promise<T> {
   const token = useAuthStore.getState().accessToken
   const lang = getActiveLang()
 
@@ -48,12 +85,19 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers,
   })
 
+  // Expired access token: silently rotate the session and replay the call
+  // once, so players are never logged out mid-game by a timing edge.
+  if (response.status === 401 && !isCredentialPath(path) && !isRetry) {
+    const refreshed = await refreshSession()
+    if (refreshed) {
+      return request<T>(path, options, true)
+    }
+    useAuthStore.getState().logout()
+  }
+
   if (!response.ok) {
     const requestFailed = getActiveT()('common.requestFailed')
     const error = await response.json().catch(() => ({ detail: requestFailed }))
-    if (response.status === 401 && !path.includes('/identity/login') && !path.includes('/identity/logout')) {
-      useAuthStore.getState().logout()
-    }
     const rawMessage = error.detail || error.title || requestFailed
     const message = translateBackendMessage(rawMessage, getActiveT())
     throw new ApiError(response.status, message, error.errors)
@@ -114,6 +158,10 @@ export const lobbyApi = {
   }),
   joinRoom: (id: string) => request<LobbyRoom>(`/lobby/rooms/${id}/join`, {
     method: 'POST',
+  }),
+  joinRoomByCode: (code: string) => request<LobbyRoom>(`/lobby/rooms/join-by-code`, {
+    method: 'POST',
+    body: JSON.stringify({ code }),
   }),
   leaveRoom: (id: string) => request<LobbyRoom>(`/lobby/rooms/${id}/leave`, {
     method: 'POST',
