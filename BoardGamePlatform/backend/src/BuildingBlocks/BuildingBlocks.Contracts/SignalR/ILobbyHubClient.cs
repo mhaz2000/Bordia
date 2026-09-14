@@ -46,4 +46,9 @@ public interface ILobbyHubClient
     /// uses this to leave with an explanatory message).
     /// </summary>
     Task PlayerKicked(Guid roomId, Guid playerId);
+
+    /// <summary>
+    /// Delivers a room chat message to every member viewing the room.
+    /// </summary>
+    Task RoomMessage(Guid roomId, Guid messageId, Guid userId, string displayName, string text, DateTime sentAt);
 }

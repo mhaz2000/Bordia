@@ -6,6 +6,7 @@ import { useAuth } from '@/shared/hooks/useAuth'
 import { useLobbyStore } from '@/shared/state/lobbyStore'
 import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
+import { ChatDrawer } from '@/shared/components/ChatDrawer'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
 import {
   ArrowRightOnRectangleIcon,
@@ -21,6 +22,10 @@ import {
 } from '@heroicons/react/24/outline'
 import { useI18n } from '@/i18n/I18nProvider'
 import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
+import { UnoCardVisual, UnoCardBackVisual } from '@/shared/components/UnoCardVisual'
+import { SilverCardVisual, SilverCardBack } from '@/shared/components/SilverCardVisual'
+import { MoonIcon as MoonSolid } from '@heroicons/react/24/solid'
+import { GemChip } from '@/shared/components/SplendorCardVisual'
 import { useGameInfo } from '@/features/lobby/gameMeta'
 import type { LobbyRoom, LobbyRoomPlayer } from '@/shared/api/lobby'
 
@@ -216,22 +221,28 @@ export function RoomPage() {
           </Card>
         </div>
       )}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-slate-950/85 backdrop-blur border-b border-white/10 sticky top-0 z-10 shadow-lg shadow-slate-950/20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3 min-w-0">
-              <Button variant="ghost" onClick={handleLeave} isLoading={isLeaving} title={t('room.leave')}>
+              <button
+                type="button"
+                onClick={handleLeave}
+                disabled={isLeaving}
+                title={t('room.leave')}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-white/75 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-40"
+              >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
-              </Button>
+              </button>
               <div className="min-w-0">
-                <h1 className="text-lg font-bold text-gray-900 truncate">{currentRoom.name}</h1>
-                <p className="text-xs text-gray-500 truncate">
+                <h1 className="text-lg font-bold text-white truncate">{currentRoom.name}</h1>
+                <p className="text-xs text-slate-400 truncate">
                   {theme.title} · {t('room.playersCount', { n: currentRoom.players.length })}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <LanguageSwitcher />
+              <LanguageSwitcher dark />
               {isHost && currentRoom.status === 'Waiting' && (
                 <Button variant="primary" onClick={handleStart} isLoading={isStarting} disabled={!canStart}>
                   <PlayIcon className="w-4 h-4 me-2" />
@@ -249,6 +260,51 @@ export function RoomPage() {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.28),transparent_55%)]" />
           <div className="pointer-events-none absolute -bottom-10 -end-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
           <div className="pointer-events-none absolute -top-14 start-1/3 h-40 w-40 rounded-full bg-black/10 blur-3xl" />
+
+          {/* Per-game hero garnish */}
+          {currentRoom.gameType === 'UNO' && (
+            <div className="pointer-events-none absolute end-36 top-0 hidden items-start gap-1.5 lg:flex">
+              <div className="animate-floaty">
+                <UnoCardVisual card={{ Color: 0, Value: 7 }} size="md" className="rotate-[-10deg]" />
+              </div>
+              <div className="animate-floaty-delayed mt-3">
+                <UnoCardVisual card={{ Color: 2, Value: 10 }} size="md" className="rotate-[9deg]" />
+              </div>
+              <div className="animate-floaty mt-6" style={{ animationDelay: '1s' }}>
+                <UnoCardBackVisual size="md" className="rotate-[18deg]" />
+              </div>
+            </div>
+          )}
+          {currentRoom.gameType === 'Silver' && (
+            <div className="pointer-events-none absolute end-40 top-1/2 hidden -translate-y-1/2 items-center gap-2 lg:flex">
+              <MoonSolid className="a-glyph h-11 w-11 text-slate-100 drop-shadow-[0_0_16px_rgba(226,232,240,0.8)]" />
+              <div className="flex items-end gap-1">
+                <div className="animate-floaty">
+                  <SilverCardVisual
+                    card={{ Id: 'room-d1', Value: 8, FaceUp: true, Protected: false, AmuletProtected: false, GuardedByCardId: null }}
+                    size="sm"
+                    className="rotate-[-8deg]"
+                  />
+                </div>
+                <div className="animate-floaty-delayed">
+                  <SilverCardBack size="sm" className="rotate-[8deg]" />
+                </div>
+              </div>
+            </div>
+          )}
+          {currentRoom.gameType === 'Splendor' && (
+            <div className="pointer-events-none absolute end-40 top-1/2 hidden -translate-y-1/2 items-center gap-2 lg:flex">
+              <div className="animate-floaty">
+                <GemChip color="ruby" size="md" className="rotate-[-10deg]" />
+              </div>
+              <div className="animate-floaty-delayed">
+                <GemChip color="emerald" size="md" />
+              </div>
+              <div className="animate-floaty" style={{ animationDelay: '1.2s' }}>
+                <GemChip color="gold" size="md" className="rotate-[10deg]" />
+              </div>
+            </div>
+          )}
           <div className="relative flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-white/75">{theme.title}</p>
@@ -476,6 +532,8 @@ export function RoomPage() {
           </Button>
         </div>
       </Modal>
+
+      <ChatDrawer roomId={roomId} selfUserId={user?.id} />
     </div>
   )
 }

@@ -54,6 +54,20 @@ public class LobbyHub : Microsoft.AspNetCore.SignalR.Hub<ILobbyHubClient>
     }
 
     /// <summary>
+    /// Sends a chat message to the room. Validation, membership and the rate
+    /// limit live in the Application handler; the result is broadcast to the
+    /// room's group, never returned privately.
+    /// </summary>
+    /// <param name="roomId">The room to send the message to.</param>
+    /// <param name="text">The message text.</param>
+    public async Task SendRoomMessage(Guid roomId, string text)
+    {
+        await _mediator.Send(new Lobby.Application.Commands.SendRoomMessage.SendRoomMessageCommand(
+            roomId,
+            text));
+    }
+
+    /// <summary>
     /// Marks the player's seats offline when the connection drops (tab close,
     /// network loss), so the waiting room presence stays truthful.
     /// </summary>

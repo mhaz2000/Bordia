@@ -1,9 +1,16 @@
-# Splendor - Game Documentation
+﻿# Splendor - Game Documentation
 
-> **Status: documentation/specification prepared (2026-09-13); Splendor implementation NOT started.**
-> Nothing in this document has been implemented: there is no `Games/Splendor` project,
-> no engine, no frontend view, no tests. This file is the authoritative rules and
-> integration specification a future implementation agent follows to build the game.
+> **Status: implemented end-to-end — backend (2026-09-13): engine (`Games/Splendor`, `IGame` +
+> `IPlayerViewGame`), Game Service DI registration, `splendor.*` EN/FA error catalogs,
+> and a 236-check verification harness (`tests/Splendor.Harness`, all passing).**
+> **Frontend (2026-09-14): `splendor.ts` typed projection mirror + parser with the
+> authoritative-shape rejection guard, `SplendorGameView.tsx` (full board + atomic-action
+> interaction), card/noble/token art mixing original inline SVG with real
+> photography + public-domain paintings from Wikimedia Commons
+> (`frontend/public/splendor/`, licenses in `CREDITS.md`; see Critical Decision
+> 2026-09-14), `GamePage` switch, `comingSoon` removed, and complete `games.Splendor` /
+> `splendor.*` / `events.splendor.*` copy in both EN and FA locales; `tsc && vite build`
+> green.** This file remains the authoritative rules and integration specification.
 
 > This document owns everything about the Splendor ruleset:
 > - authoritative rules specification
@@ -250,30 +257,30 @@ Diamond tokens + two Sapphire tokens.
 | `L1D03` | D | 0 | `2R 1O` |
 | `L1D04` | D | 0 | `2S 2O` |
 | `L1D05` | D | 0 | `3D 1S 1O` |
-| `L1D06` | D | 0 | `2S 2E 1R` |
+| `L1D06` | D | 0 | `2S 2E 1O` |
 | `L1D07` | D | 0 | `1S 1E 1R 1O` |
 | `L1D08` | D | 0 | `1S 2E 1R 1O` |
 | `L1S01` | S | 0 | `3O` |
 | `L1S02` | S | **1** | `4R` |
 | `L1S03` | S | 0 | `1D 2O` |
-| `L1S04` | S | 0 | `2E 2R` |
-| `L1S05` | S | 0 | `1D 3E 1R` |
+| `L1S04` | S | 0 | `2E 2O` |
+| `L1S05` | S | 0 | `1S 3E 1R` |
 | `L1S06` | S | 0 | `1D 2E 2R` |
 | `L1S07` | S | 0 | `1D 1E 1R 1O` |
 | `L1S08` | S | 0 | `1D 1E 2R 1O` |
 | `L1E01` | E | 0 | `3R` |
 | `L1E02` | E | **1** | `4O` |
 | `L1E03` | E | 0 | `2D 1S` |
-| `L1E04` | E | 0 | `2S 2O` |
-| `L1E05` | E | 0 | `1D 3S 1R` |
+| `L1E04` | E | 0 | `2S 2R` |
+| `L1E05` | E | 0 | `1D 3S 1E` |
 | `L1E06` | E | 0 | `1S 2R 2O` |
 | `L1E07` | E | 0 | `1D 1S 1R 1O` |
 | `L1E08` | E | 0 | `1D 1S 1R 2O` |
 | `L1R01` | R | 0 | `3D` |
 | `L1R02` | R | **1** | `4D` |
 | `L1R03` | R | 0 | `2S 1E` |
-| `L1R04` | R | 0 | `2D 2O` |
-| `L1R05` | R | 0 | `1D 1E 3O` |
+| `L1R04` | R | 0 | `2D 2R` |
+| `L1R05` | R | 0 | `1D 1R 3O` |
 | `L1R06` | R | 0 | `2D 1E 2O` |
 | `L1R07` | R | 0 | `1D 1S 1E 1O` |
 | `L1R08` | R | 0 | `2D 1S 1E 1O` |
@@ -296,7 +303,7 @@ Diamond tokens + two Sapphire tokens.
 | `L2D04` | D | 2 | `1E 4R 2O` |
 | `L2D05` | D | 1 | `3E 2R 2O` |
 | `L2D06` | D | 1 | `2D 3S 3R` |
-| `L2S01` | S | 2 | `5D` |
+| `L2S01` | S | 2 | `5S` |
 | `L2S02` | S | 3 | `6S` |
 | `L2S03` | S | 2 | `5D 3S` |
 | `L2S04` | S | 2 | `2D 1R 4O` |
@@ -1191,7 +1198,7 @@ Key inventory:
 - Action names (Take three gems / Take two identical / Reserve / Buy…), status lines,
   validation/error UI strings ("You already have 3 reserved cards", "Supply too low to
   take two — needs 4", "Only the trigger player's last turn…", etc.).
-- Noble labels built from gem names ("4 Diamonds + 4 Sapphires") + "Noble"/"اشراف‌زاده".
+- Noble labels built from gem names ("4 Diamonds + 4 Sapphires") + "Noble"/"Ø§Ø´Ø±Ø§Ùâ€ŒØ²Ø§Ø¯Ù‡".
 - End-game/tie-break messages, including the shared-victory variant.
 - Hardcoding English or Persian strings inside components is forbidden.
 - **Server-side error localization (mandatory):** every `splendor.*` engine error code
@@ -1535,3 +1542,19 @@ Game-specific decisions only; platform decisions live in the root `AGENTS.md`.
   - **Context:** The owner directed that this step produce the rules/implementation specification alone.
   - **Decision:** This file is the sole deliverable (plus one index line in the root `AGENTS.md`'s Game Documentation table, required by that file's own documentation-organization rules). No `Games/Splendor` project, no frontend changes beyond leaving the existing `comingSoon` placeholder untouched, no engine/platform edits.
   - **Rationale:** Documentation-first per explicit instruction; the root AGENTS.md explicitly forbids creating a Splendor project before a new decision — this decision (§ above) records the selection; implementation remains a future, separately-directed step.
+
+- **2026-09-13** — Open interpretations OD-1 … OD-7 resolved as follows (backend implementation)
+  - **Context:** The specification prescribed defaults for seven points the official rulebook does not fully pin down (§29); the backend implementation confirms each default as final.
+  - **Decision:** **OD-1** — the "take 3 different" action takes exactly `min(3, colors with supply > 0)` distinct colors; submitting fewer (or more) while the supply demands another size is rejected with `splendor.exactGemsRequired`; gold is never a take color; with zero colored supply the action is illegal. **OD-2** — end-of-turn returns may draw on any held token kind (any colors, gold included; just-taken tokens are returnable). **OD-3** — an overflow with no (or insufficient) return list is rejected `splendor.tokenLimitExceeded`; an over-return is `splendor.invalidReturn`; nothing is ever auto-returned. **OD-4** — "youngest player" maps to a uniform-random start seat chosen at creation (seeded under `Seed`), persisted in `CurrentPlayerIndex`. **OD-5** — a timeout (system) turn that ends with 2+ eligible nobles auto-awards the first eligible in the §3.2 display order. **OD-6** — an AFK-eliminated seat keeps its tokens and board on the table (no reclamation), is excluded from winner determination and from the owed-final-turn list, is skipped by turn advancement; if ≤1 active seat remains the game ends immediately with the survivor (or shared victory if none). **OD-7** — the tie-break ladder implemented is §11's four rungs (points → fewest purchased → fewest reserved → shared `Winner = null`); the "fewest tokens" myth stays rejected.
+  - **Rationale:** All seven match the prescribed defaults after implementation review; none required deviation, so §29's list is closed with this record (no silent changes).
+
+- **2026-09-13** — Splendor backend implemented and verified (frontend intentionally not started)
+  - **Context:** The owner directed backend-only implementation against this specification (no UI).
+  - **Decision:** Implemented the full Splendor backend: (1) `Games/Splendor` (net9.0, references only `GameEngine.Core`, added to both `BoardGamePlatform.sln` and `.slnx`) with `SplendorGame : IGame, IPlayerViewGame` (partial classes: core+pipeline / actions / valid-actions / view), `SplendorState` (seats, supply, 3 deck orders, 12-slot market, revealed nobles, blind reservations, final-round seat-pending list, UNO-style timer config/accounting, event log), static `SplendorCatalogue` (the exact 90-card + 10-noble tables of §3), `SplendorView`/`SplendorViewReservation` (player-view projection), `SplendorEvent` JSON-envelope log, and `Errors` (25 `splendor.*` codes added to **both** `errors.en.json`/`errors.fa.json`; game codes stay in the game project per the Silver precedent). (2) Registered via `services.AddSingleton<GameEngine.Core.IGame, Splendor.SplendorGame>();` next to UNO and Silver — the `GET /api/game/games` catalog and `GameEngineProvider` resolution needed zero changes. (3) Rules enforced per §3–§13: 2–4 players with the exact §4 supplies; one atomic main action per turn (`TakeThreeGems`, `TakeTwoGems`, `ReserveMarketCard`, `ReserveDeckCard`, `PurchaseMarketCard`, `PurchaseReservedCard`) with the end-of-turn pipeline (nobles → threshold → equal final turns → advance) run inside a single `ProcessAction`; 10-token cap enforced through payload `Return` lists; payments validated against bonus-discounted exact costs with gold covering shortfall exactly (no overpay, no off-color pay); market refill on every market removal, null slots once a tier deck exhausts; max 3 reservations; blind deck reservations; nobles automatic, ≤1 per turn, player-chosen among 2+, carried over, display-order auto on timeout; ≥15 triggers equal final turns; §11's four-rung ladder with shared victory → `Winner = null`. (4) **Implementation-time catalogue audit:** the §3.3 tables were regenerated from the photograph-verified source and **8 hand-transcribed cost cells were corrected** (L1D06, L1E04, L1E05, L1R04, L1R05, L1S04, L1S05, L2S01 — mostly Onyx/Ruby and Sapphire/Diamond swaps); the engine catalogue now matches the verified CSV byte-for-byte and the rulebook's example card `L3S02` exactly. (5) Verification: `tests/Splendor.Harness` (console project in both solution files) — **236 checks, 0 failed** — covering catalogue totals/identities, 2/3/4-player setup + rejection, all gem actions incl. OD-1 supply-shortage takes and the 10-cap return matrix, both reservation variants incl. gold exhaustion and the 3-limit, payment/bonus/gold/zero-cost purchase combinations, noble eligibility/auto/multi-choice/carry-over/once-only, end-game equalization and every tie-break rung, `GameTimeExpired`/`TurnTimeout`/AFK elimination (2P, 3P, last-survivor), `GetValidActions` enumeration with all listed actions accepted, serialize→deserialize→continue loops incl. blind reservation ids and deck order, forged-card-id rejection, per-viewer leak scans (no deck order, no blind ids — even to the owner), and an 120-turn seeded random-valid-action soak per player count asserting invariants I1–I14 after every turn. `dotnet build` of both solution files (all 19 projects) is green with 0 warnings. Frontend (checklist items 14) deliberately untouched.
+  - **Rationale:** The atomic-payload design (§15) held: no pending sub-phase states were needed, and timeouts/reconnects stay trivial because every player turn resolves in exactly one engine call. Two documented refinements beyond the spec table: `ClaimNoble` was added to **all four take/reserve payloads too** (carried-over eligibility can make a plain take turn multi-eligible; without the field such turns would deadlock player-submitted actions), and `GetValidActions` entries carry canonical `Return`/`Payment`/`ClaimNoble` values so every listed action is genuinely acceptable as-is. The event subset follows the Silver precedent (`turnAdvanced` omitted — turn changes are observable in state; `splendor.gameTimeExpired`/`splendor.playerEliminated` added). Dev-stage caveat as usual: sessions persisted under earlier drafts are not resumable; none exist yet since no live game has run.
+
+- **2026-09-14** — Frontend implemented end to end; original inline-SVG art (no image assets), blind purchase as a zero-payment attempt
+  - **Context:** The owner directed the frontend step ("make it beautiful, some visualization for cards, place image for cards and nobles"). The repository ships **no** image assets (UNO and Silver draw their cards with inline SVG + CSS — `UnoCardVisual.tsx`, `SilverCardArt.tsx`), and the actual Splendor card/noble artwork is copyrighted; a static mirror of the 90-card catalogue (ids → tier/bonus/points/cost) and the 10 nobles was required anyway because the client projection carries card **ids only** (§12: costs live in the projection's public inputs, never as payloads).
+  - **Decision:** (1) `frontend/src/features/game/splendor.ts` mirrors the projected `SplendorView` exactly (verified against a real `GetPlayerView` serialization: PascalCase keys, string-enum `Source`, `CardId: null` on blind reservations, no `Decks` key anywhere), embeds the catalogue mirror (machine-diffed against `SplendorCatalogue.cs`: 90/90 cards, 10/10 nobles, zero mismatches), and keeps the §12 defensive guard: `parseSplendorState` rejects any payload shaped like the authoritative state. (2) **Card/noble "images" are original inline SVG art** in `shared/components/SplendorCardVisual.tsx` (five faceted gem cuts — brilliant/oval/emerald-step/cushion/square — plus joker coin, radial-shaded 3D token chips with dark underside and cast shadow, tier-tinted gilded card frames around framed illustrated scenes (mine tunnel with lantern & ore cart / aqueduct over a river / jeweler's velvet & solitaire ring), VP star, bonus gem plate, printed-cost chips, and ornate damask deck backs) and `SplendorNobleVisual.tsx` (gilt-framed obsidian plaque with an arched heraldic bust portrait, crown finial, 3-VP badge, requirement gems). No binary assets were added at first; the same-day owner follow-up then directed **real images**, so 19 files were sourced from Wikimedia Commons into `frontend/public/splendor/` — gemstone/bullion photographs (`gems/*.jpg`), three level scenes (`scenes/mine|aqueduct|jewels.jpg`) and ten anonymous Old-Master portrait paintings (`nobles/n1..n10.jpg`) — every one public domain or free-licensed, with source links and per-file licenses recorded in `public/splendor/CREDITS.md` (CC BY-SA attributions live there). `GemChip`/`BonusChip` now print the photographic stone inside the 3D colored rim, card art windows show the photos, and noble tiles show portraits — kept **nameless** per §3.2 (the paintings are anonymous; no noble names were invented). Faceted SVG gem icons remain for the tiny cost pips / requirement rows where crisp color+shape beats photo legibility at 12-16px; the actual Splendor box art is still not used anywhere. (3) `SplendorGameView.tsx`: emerald-felt/gold table with the noble strip, three market rows (L3 back → L1 front, deck stacks clickable for blind reserve, permanently-spent slots), clickable token bank where the take is **auto-detected from what the player taps** (no mode switch — owner refinement 2026-09-14): three distinct gems stage `TakeThreeGems`, a second tap on a lone gem stages `TakeTwoGems` (needs 4+ in supply), and mixed or over-complete selections are blocked with a hint (display aid only; the engine stays the sole enforcer; OD-1 forced-size hint), per-seat panels (tokens, bonuses, public vs face-down reservations, tableau grouped by bonus color), purchase composer with bonus-struck effective costs, per-color steppers + derived gold and auto-fill, atomic-turn confirm modal carrying the `Return` selector (10-cap, OD-2 any held token incl. gold) and the `ClaimNoble` picker shown exactly when 2+ nobles are eligible, final-round banner, ≥15 standings modal with the shared-victory case, AFK overlay, TimerRing (60/180/15 defaults per §20) and the localized event log. No game rules decide legality client-side — every affordance is a display aid; the engine remains the only enforcer. (4) `games.Splendor`, `splendor.*` and `events.splendor.*` copy in **both** locales (full `fa: Dict` parity, RTL via logical utilities). (5) **Blind reservations cannot be paid knowingly** (the engine requires payment to exactly equal the hidden effective cost, so any partial guess would let a player probe the cost through rejected attempts): the UI offers a single "Attempt to buy (blind)" button submitting an all-zero payment — accepted only when bonuses fully cover the hidden card — while mismatch is answered with the existing generic `splendor.insufficientFunds` ("You cannot afford that card", which carries no `{0}` argument, so the id stays secret). (6) Integration: `GamePage` view switch + removal of the earlier debug `GameBoard` Splendor block and its now-dead `game.splendor*` keys, `comingSoon` removed from `GAME_THEME`. Verified: `tsc && vite build` and solution `dotnet build` green; catalogue + projection-contract scratch checks 11/11 (removed afterwards). Live docker playtest (§28 step 17) remains a separately-runnable manual step.
+  - **Rationale:** SVG art is the platform precedent (zero assets to license or load, sharp at every size, RTL-neutral, theme-consistent with UNO/Silver); the catalogue mirror duplicates only public static data (validated by mechanical diffing against the engine's own table), keeping the projection secret-free by construction; the zero-payment blind-buy is the only flow that cannot leak hidden costs through error probing.
+

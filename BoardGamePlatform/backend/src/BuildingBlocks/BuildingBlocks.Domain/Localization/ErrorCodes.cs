@@ -55,6 +55,7 @@ public static class ErrorCodes
         public const string AllMustBeReady = "lobby.allMustBeReady";
         public const string TwoPlayersRequired = "lobby.twoPlayersRequired";
         public const string RoomNotStartable = "lobby.roomNotStartable";
+        public const string ChatRateLimited = "lobby.chatRateLimited";
         public const string GameServiceFailed = "lobby.gameServiceFailed";
         public const string RoomIsPrivate = "lobby.roomIsPrivate";
         public const string RoomCodeNotFound = "lobby.roomCodeNotFound";
@@ -91,6 +92,8 @@ public static class ErrorCodes
         public const string PlayerIdRequired = "validation.playerIdRequired";
         public const string ConnectionIdRequired = "validation.connectionIdRequired";
         public const string SessionIdRequired = "validation.sessionIdRequired";
+        public const string ChatMessageRequired = "validation.chatMessageRequired";
+        public const string ChatMessageTooLong = "validation.chatMessageTooLong";
         public const string ActionTypeRequired = "validation.actionTypeRequired";
         public const string ActionTypeTooLong = "validation.actionTypeTooLong";
         public const string PayloadRequired = "validation.payloadRequired";

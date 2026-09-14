@@ -50,3 +50,12 @@ export interface TransferHostRequest {
   roomId: string
   playerId: string
 }
+
+export interface LobbyChatMessage {
+  id: string
+  roomId: string
+  userId: string
+  displayName: string
+  text: string
+  sentAt: string
+}

@@ -10,6 +10,7 @@ export interface LobbyHubEvents {
   onGameStarted: (roomId: string, gameSessionId: string) => void
   onPresenceChanged: (roomId: string, playerId: string, isConnected: boolean) => void
   onPlayerKicked: (roomId: string, playerId: string) => void
+  onRoomMessage: (roomId: string, messageId: string, userId: string, displayName: string, text: string, sentAt: string) => void
 }
 
 type EventHandlers = Partial<LobbyHubEvents>
@@ -95,6 +96,10 @@ class LobbyHubClient {
       this.handlers.onPlayerKicked?.(roomId, playerId)
     })
 
+    this.connection.on('RoomMessage', (roomId: string, messageId: string, userId: string, displayName: string, text: string, sentAt: string) => {
+      this.handlers.onRoomMessage?.(roomId, messageId, userId, displayName, text, sentAt)
+    })
+
     // After an automatic reconnect the connection id changed: re-join the
     // room so the hub records the new id (otherwise the seat would show
     // offline and stop receiving group updates).
@@ -136,6 +141,13 @@ class LobbyHubClient {
     if (this.currentRoomId === roomId) {
       this.currentRoomId = null
     }
+  }
+
+  async sendRoomMessage(roomId: string, text: string): Promise<void> {
+    if (!this.connection || this.connection.state !== signalR.HubConnectionState.Connected) {
+      await this.connect()
+    }
+    await this.connection!.invoke('SendRoomMessage', roomId, text)
   }
 
   async disconnect(): Promise<void> {

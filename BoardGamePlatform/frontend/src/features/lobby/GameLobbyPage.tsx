@@ -23,7 +23,13 @@ import { Input } from '@/shared/components/Input'
 import { Select } from '@/shared/components/Select'
 import { Modal } from '@/shared/components/Modal'
 import { Card, CardContent } from '@/shared/components/Card'
+import { BrandLogo } from '@/shared/components/BrandLogo'
 import { UnoCardVisual, UnoCardBackVisual } from '@/shared/components/UnoCardVisual'
+import { SilverCardVisual, SilverCardBack } from '@/shared/components/SilverCardVisual'
+import { MoonIcon as MoonSolid } from '@heroicons/react/24/solid'
+import { GemChip, SplendorCardVisual } from '@/shared/components/SplendorCardVisual'
+import { SplendorNobleVisual } from '@/shared/components/SplendorNobleVisual'
+import { cardById, nobleById } from '@/features/game/splendor'
 import { useI18n } from '@/i18n/I18nProvider'
 import { LanguageSwitcher } from '@/shared/components/LanguageSwitcher'
 import { useGameInfo, type RuleIconName } from './gameMeta'
@@ -54,6 +60,8 @@ export function GameLobbyPage() {
   const gameTypeParam = gameType ?? ''
   const info = useGameInfo(gameTypeParam)
   const isUno = gameTypeParam === 'UNO'
+  const isSilver = gameTypeParam === 'Silver'
+  const isSplendor = gameTypeParam === 'Splendor'
   const { t } = useI18n()
   const navigate = useNavigate()
   const { createRoom, joinRoom, joinRoomByCode, joinRoomByCodePending, isCreating } = useLobby()
@@ -150,21 +158,31 @@ export function GameLobbyPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-slate-950/85 backdrop-blur border-b border-white/10 sticky top-0 z-10 shadow-lg shadow-slate-950/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" asChild>
-                <Link to="/lobby">
-                  <ArrowLeftIcon className="w-5 h-5" />
-                </Link>
-              </Button>
-              <h1 className="text-xl font-bold text-gray-900">{info.title}</h1>
+              <Link
+                to="/lobby"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+                aria-label={t('common.backToLobby')}
+              >
+                <ArrowLeftIcon className="w-5 h-5 rtl:-scale-x-100" />
+              </Link>
+              <BrandLogo dark compact />
+              <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white ring-1 ring-white/15">
+                {info.title}
+              </span>
             </div>
             {!info.comingSoon && (
               <div className="flex items-center gap-3">
-                <LanguageSwitcher />
-                <Button variant="primary" onClick={openCreateModal} isLoading={isCreating}>
+                <LanguageSwitcher dark />
+                <Button
+                  variant="primary"
+                  onClick={openCreateModal}
+                  isLoading={isCreating}
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                >
                   <PlusIcon className="w-5 h-5 me-2" />
                   {t('gameLobby.createRoomBtn', { title: info.title })}
                 </Button>
@@ -205,8 +223,68 @@ export function GameLobbyPage() {
               </div>
             </>
           )}
-          {!isUno && (
-            <div className="pointer-events-none absolute right-8 rtl:right-auto rtl:left-8 top-8 hidden md:block opacity-20">
+          {isSilver && (
+            <>
+              {/* Silver: the amulet moon over hidden village cards */}
+              <div className="pointer-events-none absolute -start-3 top-9 hidden sm:block">
+                <div className="relative">
+                  <SilverCardBack size="xl" className="absolute start-0 top-3 -rotate-[22deg] opacity-50" />
+                  <div className="animate-floaty">
+                    <SilverCardVisual
+                      card={{ Id: 'hero-seer', Value: 8, FaceUp: true, Protected: false, AmuletProtected: false, GuardedByCardId: null }}
+                      size="xl"
+                      className="relative -rotate-[12deg] shadow-[0_0_30px_rgba(148,163,184,0.35)]"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="pointer-events-none absolute end-8 top-8 hidden flex-col items-center md:flex">
+                <MoonSolid className="a-glyph h-16 w-16 text-slate-100 drop-shadow-[0_0_22px_rgba(226,232,240,0.85)]" />
+                <div className="mt-5 flex items-end gap-2">
+                  <div className="animate-floaty-delayed">
+                    <SilverCardVisual
+                      card={{ Id: 'hero-witch', Value: 11, FaceUp: true, Protected: false, AmuletProtected: false, GuardedByCardId: null }}
+                      size="lg"
+                      className="rotate-[8deg]"
+                    />
+                  </div>
+                  <div className="animate-floaty mt-6" style={{ animationDelay: '1.4s' }}>
+                    <SilverCardVisual
+                      card={{ Id: 'hero-guard', Value: 3, FaceUp: true, Protected: false, AmuletProtected: false, GuardedByCardId: null }}
+                      size="lg"
+                      className="rotate-[16deg]"
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+          {isSplendor && (
+            <>
+              {/* Splendor: gem token cluster beside a jeweler card and a noble tile */}
+              <div className="pointer-events-none absolute -start-1 top-9 hidden flex-col gap-3 sm:flex">
+                <div className="animate-floaty self-start">
+                  <GemChip color="ruby" size="lg" className="rotate-[-10deg] shadow-[0_0_18px_rgba(244,63,94,0.45)]" />
+                </div>
+                <div className="animate-floaty-delayed self-center">
+                  <GemChip color="emerald" size="lg" />
+                </div>
+                <div className="animate-floaty self-start" style={{ animationDelay: '1.8s' }}>
+                  <GemChip color="sapphire" size="lg" className="rotate-[12deg]" />
+                </div>
+              </div>
+              <div className="pointer-events-none absolute end-6 top-8 hidden items-start gap-3 md:flex">
+                <div className="animate-floaty-delayed">
+                  {cardById('L3R04') && <SplendorCardVisual card={cardById('L3R04')!} size="lg" className="rotate-[-8deg]" />}
+                </div>
+                <div className="mt-10 animate-floaty" style={{ animationDelay: '0.9s' }}>
+                  {nobleById('N-DSE') && <SplendorNobleVisual noble={nobleById('N-DSE')!} size="sm" />}
+                </div>
+              </div>
+            </>
+          )}
+          {!isUno && !isSilver && !isSplendor && (
+            <div className="pointer-events-none absolute end-8 top-8 hidden md:block opacity-20">
               <span className="text-[10rem] font-black text-white leading-none">{info.title.charAt(0)}</span>
             </div>
           )}

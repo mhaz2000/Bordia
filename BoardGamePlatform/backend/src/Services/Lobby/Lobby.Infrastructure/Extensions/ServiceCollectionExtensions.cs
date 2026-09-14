@@ -28,6 +28,9 @@ public static class ServiceCollectionExtensions
         // Real-time notifier translating Application room-changed notifications into hub calls.
         services.AddScoped<MediatR.INotificationHandler<Lobby.Application.Realtime.LobbyRoomChanged>, LobbyRealTimeNotifier>();
 
+        // Room chat broadcast pusher.
+        services.AddScoped<MediatR.INotificationHandler<Lobby.Application.Realtime.RoomChatMessageSent>, LobbyChatNotifier>();
+
         // Closes abandoned waiting rooms and purges long-closed ones.
         services.Configure<Services.RoomCleanupOptions>(configuration.GetSection("Lobby:RoomCleanup"));
         services.AddHostedService<Services.AbandonedRoomCleanupService>();

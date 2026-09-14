@@ -38,6 +38,11 @@ public class LobbyDbContext : AppDbContext
     public DbSet<RoomSettings> RoomSettings => Set<RoomSettings>();
 
     /// <summary>
+    /// Chat messages sent by players inside rooms.
+    /// </summary>
+    public DbSet<RoomMessage> RoomMessages => Set<RoomMessage>();
+
+    /// <summary>
     /// Configures the lobby entities.
     /// </summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -74,6 +79,12 @@ public class LobbyDbContext : AppDbContext
         modelBuilder.Entity<RoomSettings>(entity =>
         {
             entity.ToTable("room_settings");
+        });
+
+        modelBuilder.Entity<RoomMessage>(entity =>
+        {
+            entity.ToTable("room_messages");
+            entity.HasIndex(m => new { m.RoomId, m.SentAt });
         });
     }
 }

@@ -9,6 +9,7 @@ using Lobby.Application.Commands.TransferHost;
 using Lobby.Application.Dtos;
 using Lobby.Application.Queries.GetRoom;
 using Lobby.Application.Queries.GetRoomList;
+using Lobby.Application.Queries.GetRoomMessages;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -228,6 +229,26 @@ public class RoomsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(new CloseRoomCommand(id), cancellationToken);
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Loads the most recent chat messages of a room (members only).
+    /// </summary>
+    /// <param name="id">The room id.</param>
+    /// <param name="take">How many recent messages to return (max 200).</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <response code="200">The room's recent chat messages, oldest first.</response>
+    [HttpGet("rooms/{id:guid}/chat")]
+    [ProducesResponseType(typeof(List<RoomMessageDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Chat(
+        Guid id,
+        [FromQuery] int take,
+        CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(
+            new GetRoomMessagesQuery(id, take == 0 ? 50 : take),
+            cancellationToken);
         return Ok(result.Value);
     }
 }

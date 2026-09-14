@@ -17,6 +17,7 @@ import type {
 } from './auth'
 import type { 
   LobbyRoom, 
+  LobbyChatMessage,
   CreateRoomRequest 
 } from './lobby'
 import type { 
@@ -181,6 +182,7 @@ export const lobbyApi = {
   closeRoom: (id: string) => request<LobbyRoom>(`/lobby/rooms/${id}/close`, {
     method: 'POST',
   }),
+  chatHistory: (id: string) => request<LobbyChatMessage[]>(`/lobby/rooms/${id}/chat?take=80`),
 }
 
 export const gameApi = {

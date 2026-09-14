@@ -32,6 +32,7 @@ public static class ServiceCollectionExtensions
         // registered directly here until a real multi-game need emerges.
         services.AddSingleton<GameEngine.Core.IGame, UNO.UNOGame>();
         services.AddSingleton<GameEngine.Core.IGame, Silver.SilverGame>();
+        services.AddSingleton<GameEngine.Core.IGame, Splendor.SplendorGame>();
 
         // Real-time notifier translating Application game-changed notifications into hub calls.
         services.AddScoped<MediatR.INotificationHandler<Game.Application.Realtime.GameStateChanged>, GameRealTimeNotifier>();

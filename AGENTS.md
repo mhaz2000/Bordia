@@ -7,12 +7,13 @@
 | Foundation (services, BuildingBlocks, gateway, docker, auth, lobby) | COMPLETE |
 | UNO (first game) | COMPLETE — see [docs/games/uno.md](docs/games/uno.md) |
 | **Silver** | **COMPLETE — see [docs/games/silver.md](docs/games/silver.md)** |
+| **Splendor** | **COMPLETE — see [docs/games/splendor.md](docs/games/splendor.md)** |
 
 ## Objective
 
 Build a production-ready online multiplayer board game platform.
 
-The foundation phase established the architecture that all future development builds upon: infrastructure, communication, authentication, rooms, and the game engine foundation. That work is **complete**, and two games (**UNO**, **Silver**) have been implemented end to end on top of it.
+The foundation phase established the architecture that all future development builds upon: infrastructure, communication, authentication, rooms, and the game engine foundation. That work is **complete**, and three games (**UNO**, **Silver**, **Splendor**) have been implemented end to end on top of it.
 
 The current goal is implementing further games on the existing architecture, with **zero architectural changes per game** — see *Game Documentation* and the integration checklist for the pattern.
 
@@ -381,8 +382,9 @@ Games are implemented as separate projects under `Games/`, one per game, each re
 
 - `Games/UNO/` — implemented end to end (engine, registration, frontend view, localization); see [docs/games/uno.md](docs/games/uno.md).
 - `Games/Silver/` — implemented end to end (engine, player-view projection, frontend view, localization); see [docs/games/silver.md](docs/games/silver.md).
+- `Games/Splendor/` — implemented end to end (engine, viewer-independent player-view projection, registration, frontend views with original SVG card/noble/token art, localization); see [docs/games/splendor.md](docs/games/splendor.md).
 
-Splendor remains a future game: its implementation-ready specification is prepared at [docs/games/splendor.md](docs/games/splendor.md), but no project for it exists and none should be created until implementation is explicitly started.
+Splendor implementation was explicitly started by owner decision 2026-09-13 (see the Critical Decisions of [docs/games/splendor.md](docs/games/splendor.md)); the frontend followed by owner decision 2026-09-14. Both are complete.
 
 ---
 
@@ -498,11 +500,11 @@ Document every public API.
 
 Do NOT implement:
 
-- Splendor rules
+- Splendor rules beyond the base game (no Cities of Splendor / Trading Posts / The Orient / The Strongholds modules, no Splendor Duel / Marvel variants, no expansions, fan variants, or house rules) — see [docs/games/splendor.md](docs/games/splendor.md)
 - Wingspan
 - Azul
 - Silver rules beyond the base game (no Silver Bullet / Silver Coin / Silver Dagger decks, no combining decks, no variants or house rules)
-- Chat
+- ~~Chat~~ — *implemented 2026-09-14 by owner decision; see Critical Decisions*
 - Friends
 - Matchmaking
 - Rankings
@@ -833,7 +835,7 @@ live in `docs/games/`, not in this file:
 |---|---|---|
 | UNO | Implemented | [docs/games/uno.md](docs/games/uno.md) |
 | Silver | Implemented | [docs/games/silver.md](docs/games/silver.md) |
-| Splendor | **Specification only — NOT implemented** | [docs/games/splendor.md](docs/games/splendor.md) |
+| Splendor | Implemented (backend 2026-09-13, frontend 2026-09-14) | [docs/games/splendor.md](docs/games/splendor.md) |
 
 This file remains authoritative for the platform: architecture, service boundaries, the
 `IGame` / `IPlayerViewGame` engine contracts, shared persistence/localization/SignalR
@@ -998,6 +1000,8 @@ Format for each entry:
   - **Decision:** (1) `TurnTimeoutService` now sets `GameType = session.GameType` on its `StateUpdated` notification. (2) Defense in depth on the client: `parseSilverState` rejects any payload that isn't the projected view shape (`DeckSize` number + `DiscardPile` array), rendering "waiting for state" instead of crashing on a leaked/foreign schema — a raw authoritative blob must never render. (3) `GamePlayersPanel` keyed its list by `player.id` (undefined at runtime) — now keyed by `userId` with a fallback. Also per owner directive: Silver timer defaults raised to 90s base / 180s max allowance (`SilverTurnTimerConfig` defaults 90/180/15/3/60). (4) Discard-pile audit follow-up: every card sent to the discard pile lands on TOP, face up; a turn timeout with a pending exchange now returns the taken card to the area it came from (discard top or Squire display) instead of dumping display cards into the discard pile.
   - **Rationale:** The notifier cannot infer projection capability without a game type, so `GameType` is a required field of every `StateUpdated` publish (it is now consistent across all four publishers). The client guard converts any future schema drift from a white-screen crash + potential leak into a safe "waiting" screen. Restarting `Game.Api` and starting fresh sessions is required for games persisted under pre-2026-09-12 schemas (known dev-stage limitation: old Silver sessions are not resumable).
 
+
+
 - **2026-09-13** — Private rooms: code-invite mechanism + truthful lobby presence
   - **Context:** `Room.IsPrivate` was stored but never enforced: private rooms appeared in the public list and joined exactly like public ones. Simultaneously, the waiting-room presence/ready display was broken (`LobbyRoomPlayerDto` exposed no connection state while the client read a nonexistent `connectionId`; joining/disconnecting broadcast nothing; the client store and kick/transfer used a `player.id` field the DTO never had, patching by `id` and sending `undefined` userIds).
   - **Decision:** **Privacy:** private rooms are excluded from `GetRoomListQueryHandler`; `JoinRoomCommand` became `(RoomId?, Code?, AllowPrivate)` — by-id joins reject private rooms for non-members (`lobby.roomIsPrivate` error code, EN/FA catalog entries), and a new `POST /api/lobby/rooms/join-by-code { code }` is the invite path (uppercases the 6-char `RoomCodeGenerator` code, sets `AllowPrivate`). **Presence:** `LobbyRoomPlayerDto.IsConnected` (mapped from `ConnectionId != null`); `SetPlayerConnection` and a new `ClearPlayerConnectionCommand` (from `LobbyHub.OnDisconnectedAsync`) publish the new `RoomChangeType.PresenceChanged` → `ILobbyHubClient.PresenceChanged(roomId, playerId, isConnected)`; the lobby hub wrapper re-invokes `JoinRoom` on `onreconnected` so a re-connected socket records its new id. The client store patches players by `userId` (not the nonexistent `id`), kick/transfer send `userId`, and the waiting room was redesigned (themed hero, copy-code button, seat cards with presence dots, dashed empty seats, ready-progress bar, host shown without a misleading "Not ready" pill).
@@ -1017,3 +1021,8 @@ Format for each entry:
   - **Context:** The Identity service already rotates one-time-use refresh tokens (60-min access / 7-day refresh, replay of a revoked token is rejected), and the client persisted both tokens — but nothing ever used the refresh token: any 401 from `request()` called `logout()` outright, so an hour-long game or an idle tab dropped players to the login screen mid-session.
   - **Decision:** Frontend-only. `client.ts` gains a single-flight `refreshSession()` (one in-flight exchange at a time — concurrent 401s must not replay the rotated token and trip the server's reuse detection; on success it stores the new pair via `setAuth`). `request()` treats a 401 on a protected path as an expiring session: refresh once, replay the original call with the new token, and only `logout()` if the refresh itself fails; credential endpoints (`login/register/refresh/logout`) keep their plain 401 semantics. A `useSessionMaintenance()` hook (mounted in `PrivateLayout`) decodes the JWT `exp`, schedules a refresh 60 s before expiry (rescheduling on each rotation), refreshes immediately on mount if already inside the window, and re-checks on `visibilitychange` after long idle. SignalR hubs already read the live token through `accessTokenFactory`, so reconnects pick up rotated tokens.
   - **Rationale:** The request choke point is the single boundary where every API caller benefits without per-page logic; the proactive timer minimizes how often the retry path fires at all (important for in-flight game actions and SignalR handshakes). Server behavior was verified correct and untouched — rotation with replay revocation is exactly why the client serializes refreshes.
+
+- **2026-09-14** — Room chat implemented (owner reverses the earlier out-of-scope call)
+  - **Context:** AGENTS.md listed Chat as out of scope. The owner explicitly directed adding a chat available in the waiting room and in every game: a floating button opening a drawer, closable, with an unread badge on new messages while closed, and a server-enforced rate limit of 10 messages per minute per player.
+  - **Decision:** Chat belongs to the **Lobby service** (rooms are the shared concept across lobby and game; the Lobby already owns the `lobby-room-{id}` SignalR group, membership checks and presence): (1) `RoomMessage` domain entity + `room_messages` table (migration `AddRoomMessages`), append-only, soft-deleted per the global convention; (2) `SendRoomMessageCommand` — membership + room-not-closed + Redis fixed-window rate limit (`lobby:chat:{roomId}:{userId}:{yyyyMMddHHmm}`, cap 10, TTL 70s, `lobby.chatRateLimited` coded error in both EN/FA catalogs) + validation codes `validation.chatMessageRequired/TooLong` (≤300 chars); (3) delivery via the **LobbyHub** only: new client contract method `ILobbyHubClient.RoomMessage(...)` broadcast to the room group, hub method `SendRoomMessage` forwarding to the mediator (no logic in the hub, per the AI-agent rules), persisted-first then notified through `RoomChatMessageSent` + `LobbyChatNotifier`; (4) REST `GET /api/lobby/rooms/{id}/chat?take=` (members only, ≤200) loads history when the drawer opens; (5) frontend shared `ChatDrawer` component (FAB with unread badge → slide-in side drawer, Enter-to-send, own/others bubbles, localized) mounted on `RoomPage` (reuses the page's hub group join) and `GamePage` (drawer itself connects + `JoinRoom`/`LeaveRoom` on the lobby hub, so game screens receive chat without the Game service knowing anything about chat). Game sessions keep using their own hub; chat never crosses into Game service, engine, or contracts.
+  - **Rationale:** Reuses every existing platform mechanism (hub groups, coded-error localization, EF/migrations, Redis-as-cache) with zero new infrastructure; the lobby is the only service that knows room membership. Rejected: a separate Chat service (overkill for append-only room chatter), Redis pub/sub fan-out (SignalR groups already handle it), storing chat in the room cache (messages are durable history, not cache state). Known dev-stage limits: the rate limit is a soft fixed window (concurrent boundary sends may admit 11/minute; the window is the cap unit anyway) and hub invocation exceptions surface untranslated in the drawer error line (SignalR bypasses the HTTP localization boundary — same accepted precedent as before).

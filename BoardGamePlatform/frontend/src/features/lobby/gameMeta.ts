@@ -21,7 +21,7 @@ type GameContent = Dict['games']['UNO']
 const GAME_THEME: Record<string, { gradient: string; comingSoon?: boolean }> = {
   UNO: { gradient: 'from-red-500 via-orange-500 to-amber-400' },
   Silver: { gradient: 'from-indigo-500 via-slate-500 to-violet-500' },
-  Splendor: { gradient: 'from-emerald-500 via-teal-500 to-cyan-500', comingSoon: true },
+  Splendor: { gradient: 'from-emerald-500 via-teal-500 to-cyan-500' },
 }
 
 const DEFAULT_THEME = { gradient: 'from-slate-500 via-gray-600 to-gray-700', comingSoon: true }

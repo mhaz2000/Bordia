@@ -6,9 +6,11 @@ import { useGameStore } from '@/shared/state/gameStore'
 import { gameApi } from '@/shared/api/client'
 import { UnoGameView } from '@/features/game/UnoGameView'
 import { SilverGameView } from '@/features/game/SilverGameView'
+import { SplendorGameView } from '@/features/game/SplendorGameView'
 import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
+import { ChatDrawer } from '@/shared/components/ChatDrawer'
 import { ArrowRightOnRectangleIcon, PauseIcon, PlayIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { Toaster } from '@/shared/components/Toaster'
 import { useI18n } from '@/i18n/I18nProvider'
@@ -117,8 +119,8 @@ export function GamePage() {
 
   if (isLoading && !currentSession && !sessionFetchFailed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-emerald-400 border-t-transparent" />
       </div>
     )
   }
@@ -140,20 +142,24 @@ export function GamePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster />
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-slate-950/85 backdrop-blur border-b border-white/10 sticky top-0 z-10 shadow-lg shadow-slate-950/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" onClick={() => setShowLeaveModal(true)}>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLeaveModal(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-white/75 transition-colors hover:bg-white/10 hover:text-white"
+              >
                 <ArrowRightOnRectangleIcon className="w-5 h-5" />
-              </Button>
+              </button>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">{sessionTitle}</h1>
-                <p className="text-sm text-gray-500">{t('game.sessionLabel', { id: currentSession.id.slice(0, 8) })}</p>
+                <h1 className="text-lg font-bold text-white">{sessionTitle}</h1>
+                <p className="text-xs text-slate-400">{t('game.sessionLabel', { id: currentSession.id.slice(0, 8) })}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <LanguageSwitcher />
+              <LanguageSwitcher dark />
               {currentSession.status === 'Active' && (
                 <Button variant="secondary" onClick={handlePause} size="sm">
                   <PauseIcon className="w-4 h-4 mr-1" />
@@ -197,6 +203,14 @@ export function GamePage() {
             onAction={handleAction}
             isSending={isSendingAction}
           />
+        ) : currentState?.gameType === 'Splendor' ? (
+          <SplendorGameView
+            state={currentState}
+            session={currentSession}
+            userId={user?.id}
+            onAction={handleAction}
+            isSending={isSendingAction}
+          />
         ) : (
           <div className="grid gap-6 lg:grid-cols-4">
             <div className="lg:col-span-3 space-y-6">
@@ -232,6 +246,8 @@ export function GamePage() {
           </Button>
         </div>
       </Modal>
+
+      {currentSession && <ChatDrawer roomId={currentSession.roomId} selfUserId={user?.id} manageConnection />}
     </div>
   )
 }
@@ -254,33 +270,6 @@ function GameBoard({
     return (
       <Card className="h-96 flex items-center justify-center">
         <p className="text-gray-500">{t('game.loadingState')}</p>
-      </Card>
-    )
-  }
-
-  if (state.gameType === 'Splendor') {
-    return (
-      <Card className="min-h-[500px]">
-        <CardHeader>
-          <CardTitle>{t('game.splendorBoard')}</CardTitle>
-        </CardHeader>
-        <CardContent className="min-h-[400px] flex items-center justify-center">
-          <div className="text-center text-gray-500">
-            
-            <p>{t('game.splendorPending')}</p>
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg text-start max-w-md mx-auto">
-              <p className="font-medium mb-2">{t('game.splendorState')}</p>
-              <pre className="text-sm text-gray-600 overflow-auto text-start">
-                {JSON.stringify(state.data, null, 2) || '{}'}
-              </pre>
-            </div>
-            <div className="mt-4 space-y-2">
-              <p className="text-sm">{t('game.splendorPlayers')} {state.players.map(p => p.userId.slice(0, 8)).join(', ')}</p>
-              <p className="text-sm">{t('game.splendorTurn')} {state.currentPlayerIndex !== undefined ? state.players[state.currentPlayerIndex]?.userId.slice(0, 8) : '-'}</p>
-              <p className="text-sm">{t('game.splendorOver')} {state.isOver ? t('game.splendorYes') : t('game.splendorNo')}</p>
-            </div>
-          </div>
-        </CardContent>
       </Card>
     )
   }
