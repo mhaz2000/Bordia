@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Game.Domain.Enums;
 
 namespace Game.Domain.Entities;
@@ -30,6 +31,7 @@ public class GameSession : BuildingBlocks.Domain.Base.AuditableEntity
             CurrentStateJson = initialStateJson,
             StartedAt = DateTime.UtcNow
         };
+        session.ReadDeadlines(initialStateJson);
 
         for (var i = 0; i < players.Count; i++)
         {
@@ -64,6 +66,27 @@ public class GameSession : BuildingBlocks.Domain.Base.AuditableEntity
     public string CurrentStateJson { get; private set; } = "{}";
 
     /// <summary>
+    /// The engine's turn deadline, mirrored from the state JSON at write time so
+    /// the timeout sweep can find expired sessions with one indexed query
+    /// instead of deserializing every active state each second.
+    /// </summary>
+    public DateTime? NextActionDeadlineUtc { get; private set; }
+
+    /// <summary>
+    /// The engine's total-game-time deadline, mirrored from the state JSON
+    /// at write time (same indexed-sweep purpose as the turn deadline).
+    /// </summary>
+    public DateTime? GameEndsAtUtc { get; private set; }
+
+    /// <summary>
+    /// Monotonic write counter used as an optimistic concurrency token: any two
+    /// interleaved writers of the same session (player action vs the timeout
+    /// sweep, or across instances) cannot both save - the loser gets a
+    /// concurrency exception and retries against the fresh state.
+    /// </summary>
+    public long Version { get; private set; }
+
+    /// <summary>
     /// UTC timestamp when the session started.
     /// </summary>
     public DateTime? StartedAt { get; private set; }
@@ -84,6 +107,41 @@ public class GameSession : BuildingBlocks.Domain.Base.AuditableEntity
     public void ApplyState(string stateJson)
     {
         CurrentStateJson = stateJson;
+        ReadDeadlines(stateJson);
+        Version++;
+    }
+
+    private void ReadDeadlines(string stateJson)
+    {
+        NextActionDeadlineUtc = null;
+        GameEndsAtUtc = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(stateJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return;
+            }
+
+            if (doc.RootElement.TryGetProperty("NextActionDeadlineUtc", out var turn)
+                && turn.ValueKind == JsonValueKind.String
+                && DateTime.TryParse(turn.GetString(), out var turnAt))
+            {
+                NextActionDeadlineUtc = turnAt.ToUniversalTime();
+            }
+
+            if (doc.RootElement.TryGetProperty("GameEndsAtUtc", out var end)
+                && end.ValueKind == JsonValueKind.String
+                && DateTime.TryParse(end.GetString(), out var endAt))
+            {
+                GameEndsAtUtc = endAt.ToUniversalTime();
+            }
+        }
+        catch (JsonException)
+        {
+            // Corrupt state: the sweep simply treats the session as having no
+            // deadline; engine-side validation rejects processing it.
+        }
     }
 
     /// <summary>
@@ -94,6 +152,7 @@ public class GameSession : BuildingBlocks.Domain.Base.AuditableEntity
         if (Status == GameSessionStatus.Active)
         {
             Status = GameSessionStatus.Paused;
+            Version++;
         }
     }
 
@@ -105,6 +164,7 @@ public class GameSession : BuildingBlocks.Domain.Base.AuditableEntity
         if (Status == GameSessionStatus.Paused)
         {
             Status = GameSessionStatus.Active;
+            Version++;
         }
     }
 
@@ -117,6 +177,7 @@ public class GameSession : BuildingBlocks.Domain.Base.AuditableEntity
         {
             Status = GameSessionStatus.Finished;
             FinishedAt = DateTime.UtcNow;
+            Version++;
         }
     }
 

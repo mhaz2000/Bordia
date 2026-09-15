@@ -55,12 +55,27 @@ public class GameDbContext : AppDbContext
 
             entity.Property(s => s.CurrentStateJson)
                 .HasColumnName("current_state_json");
+
+            // Optimistic concurrency: two writers of the same session (player
+            // action vs timeout sweep, any instance) cannot both win - the
+            // loser gets DbUpdateConcurrencyException and retries/reports 409.
+            entity.Property(s => s.Version)
+                .HasColumnName("version")
+                .IsConcurrencyToken();
+
+            // The timeout sweep only ever touches active sessions with deadlines.
+            entity.HasIndex(s => s.NextActionDeadlineUtc)
+                .HasFilter("\"status\" = 0 AND \"is_deleted\" = false AND \"next_action_deadline_utc\" IS NOT NULL");
+            entity.HasIndex(s => s.GameEndsAtUtc)
+                .HasFilter("\"status\" = 0 AND \"is_deleted\" = false AND \"game_ends_at_utc\" IS NOT NULL");
         });
 
         modelBuilder.Entity<GamePlayer>(entity =>
         {
             entity.ToTable("game_players");
             entity.HasIndex(p => new { p.GameSessionId, p.UserId }).IsUnique();
+            // Disconnect handling looks seats up by connection id.
+            entity.HasIndex(p => p.ConnectionId);
         });
 
         modelBuilder.Entity<GameActionLog>(entity =>

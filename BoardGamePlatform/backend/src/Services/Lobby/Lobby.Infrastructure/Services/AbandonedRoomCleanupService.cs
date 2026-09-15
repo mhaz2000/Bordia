@@ -1,11 +1,13 @@
 using BuildingBlocks.Application;
 using BuildingBlocks.Contracts.Events;
 using BuildingBlocks.Infrastructure.Outbox;
+using BuildingBlocks.Infrastructure.Persistence;
 using Lobby.Application.Persistence;
 using Lobby.Application.Realtime;
 using Lobby.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -35,18 +37,24 @@ public class RoomCleanupOptions
 /// </summary>
 public class AbandonedRoomCleanupService : BackgroundService
 {
+    /// <summary>Advisory-lock key electing the single room-cleanup sweeper.</summary>
+    public const long LockKey = 7003;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<AbandonedRoomCleanupService> _logger;
+    private readonly IConfiguration _configuration;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AbandonedRoomCleanupService"/> class.
     /// </summary>
     public AbandonedRoomCleanupService(
         IServiceScopeFactory scopeFactory,
-        ILogger<AbandonedRoomCleanupService> logger)
+        ILogger<AbandonedRoomCleanupService> logger,
+        IConfiguration configuration)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _configuration = configuration;
     }
 
     /// <inheritdoc />
@@ -75,6 +83,16 @@ public class AbandonedRoomCleanupService : BackgroundService
 
     private async Task CleanupAsync(CancellationToken cancellationToken)
     {
+        // Single-sweeper election across replicas.
+        await using var lease = await PostgresAdvisoryLock.TryAcquireAsync(
+            _configuration.GetConnectionString("DefaultConnection") ?? string.Empty,
+            LockKey,
+            cancellationToken);
+        if (lease is null)
+        {
+            return;
+        }
+
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<LobbyDbContext>();
         var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();

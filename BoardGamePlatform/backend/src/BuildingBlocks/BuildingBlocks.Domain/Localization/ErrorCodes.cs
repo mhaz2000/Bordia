@@ -16,6 +16,7 @@ public static class ErrorCodes
         public const string UnexpectedError = "common.unexpectedError";
         public const string UnauthorizedAccess = "common.unauthorizedAccess";
         public const string NotAuthenticated = "common.notAuthenticated";
+        public const string ConcurrencyConflict = "common.concurrencyConflict";
     }
 
     /// <summary>RFC 7807 ProblemDetails title codes.</summary>

@@ -2,6 +2,7 @@
   "common.notFound": "موجودیت '{0}' با کلید '{1}' پیدا نشد.",
   "common.validationFailed": "یک یا چند خطای اعتبارسنجی رخ داده است.",
   "common.unexpectedError": "خطای غیرمنتظره‌ای رخ داد.",
+  "common.concurrencyConflict": "این اقدام با به‌روزرسانی دیگری هم‌زمان شد - دوباره تلاش کنید.",
   "common.unauthorizedAccess": "دسترسی غیرمجاز.",
   "common.notAuthenticated": "کاربر احراز هویت نشده است.",
 

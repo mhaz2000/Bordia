@@ -81,6 +81,17 @@ public static class ServiceCollectionExtensions
         services.AddStackExchangeRedisCache(options => options.Configuration = redisConnection);
         services.AddSingleton<RedisCacheService>();
 
+        // Shared connection multiplexer + atomic counters for rate limiting
+        // (single connection per process, thread-safe by design).
+        if (!string.IsNullOrWhiteSpace(redisConnection))
+        {
+            var redisOptions = StackExchange.Redis.ConfigurationOptions.Parse(redisConnection);
+            redisOptions.AbortOnConnectFail = false;
+            services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(
+                _ => StackExchange.Redis.ConnectionMultiplexer.Connect(redisOptions));
+            services.AddSingleton<RedisCounter>();
+        }
+
         // Register RabbitMQ publisher
         services.Configure<RabbitMqOptions>(configuration.GetSection("RabbitMQ"));
         services.AddScoped<IIntegrationEventPublisher, RabbitMqPublisher>();

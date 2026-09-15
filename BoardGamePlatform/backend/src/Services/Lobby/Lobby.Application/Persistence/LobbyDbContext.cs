@@ -74,6 +74,9 @@ public class LobbyDbContext : AppDbContext
             entity.HasIndex(p => new { p.RoomId, p.UserId })
                 .IsUnique()
                 .HasFilter("\"is_deleted\" = false");
+            // Presence bookkeeping (SetPlayerConnection / ClearPlayerConnection)
+            // looks players up by connection id on every join/disconnect.
+            entity.HasIndex(p => p.ConnectionId);
         });
 
         modelBuilder.Entity<RoomSettings>(entity =>

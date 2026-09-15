@@ -2,6 +2,7 @@
   "common.notFound": "Entity '{0}' with key '{1}' was not found.",
   "common.validationFailed": "One or more validation errors occurred.",
   "common.unexpectedError": "An unexpected error occurred.",
+  "common.concurrencyConflict": "This action overlapped with another update - please try again.",
   "common.unauthorizedAccess": "Unauthorized access.",
   "common.notAuthenticated": "User is not authenticated.",
 

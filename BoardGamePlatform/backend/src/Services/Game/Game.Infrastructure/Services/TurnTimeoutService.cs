@@ -1,5 +1,6 @@
 using BuildingBlocks.Application;
 using BuildingBlocks.Infrastructure.Caching;
+using BuildingBlocks.Infrastructure.Persistence;
 using Game.Application.Common;
 using Game.Application.Persistence;
 using Game.Application.Realtime;
@@ -8,6 +9,7 @@ using Game.Domain.Enums;
 using GameEngine.Core.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -16,16 +18,22 @@ namespace Game.Infrastructure.Services;
 
 /// <summary>
 /// Background service that enforces per-game turn timers.
-/// Polls active sessions; when a session's <see cref="GameState.NextActionDeadlineUtc"/>
-/// has passed it dispatches a <c>TurnTimeout</c> action to the Game Engine, which
-/// applies the game's timeout/Skip/AFK rules and returns an updated state. The
-/// result is persisted, cached, and broadcast through the same real-time path as
-/// player-submitted actions.
+/// Queries ONLY sessions whose mirrored deadline columns have passed (indexed,
+/// no per-second deserialization of every active state); when a deadline has
+/// passed it dispatches a <c>TurnTimeout</c>/<c>GameTimeExpired</c> action to
+/// the Game Engine, which applies the game's timeout/Skip/AFK rules and returns
+/// an updated state. The result is persisted, cached, and broadcast through the
+/// same real-time path as player-submitted actions. Each sweep cycle runs under
+/// a PostgreSQL advisory lock so replicas never double-process timeouts.
 /// </summary>
 public class TurnTimeoutService : BackgroundService
 {
+    /// <summary>Advisory-lock key electing the single timeout sweeper.</summary>
+    public const long LockKey = 7002;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<TurnTimeoutService> _logger;
+    private readonly IConfiguration _configuration;
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
 
@@ -34,10 +42,12 @@ public class TurnTimeoutService : BackgroundService
     /// </summary>
     public TurnTimeoutService(
         IServiceScopeFactory scopeFactory,
-        ILogger<TurnTimeoutService> logger)
+        ILogger<TurnTimeoutService> logger,
+        IConfiguration configuration)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _configuration = configuration;
     }
 
     /// <inheritdoc />
@@ -62,21 +72,44 @@ public class TurnTimeoutService : BackgroundService
 
     private async Task SweepExpiredSessionsAsync(CancellationToken cancellationToken)
     {
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (connectionString is null)
+        {
+            return;
+        }
+
+        // Single-sweeper election across replicas.
+        await using var lease = await PostgresAdvisoryLock.TryAcquireAsync(connectionString, LockKey, cancellationToken);
+        if (lease is null)
+        {
+            return;
+        }
+
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<GameDbContext>();
-        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var engineProvider = scope.ServiceProvider.GetRequiredService<IGameEngineProvider>();
         var cache = scope.ServiceProvider.GetRequiredService<RedisCacheService>();
         var publisher = scope.ServiceProvider.GetRequiredService<IPublisher>();
 
         var now = DateTime.UtcNow;
 
-        var sessions = await db.GameSessions
-            .Where(s => s.Status == GameSessionStatus.Active && !s.IsDeleted)
+        // Indexed: only sessions whose mirrored deadlines already passed.
+        var expiredIds = await db.GameSessions
+            .Where(s => s.Status == GameSessionStatus.Active && !s.IsDeleted
+                && ((s.NextActionDeadlineUtc != null && s.NextActionDeadlineUtc <= now)
+                    || (s.GameEndsAtUtc != null && s.GameEndsAtUtc <= now)))
+            .Select(s => s.Id)
             .ToListAsync(cancellationToken);
 
-        foreach (var session in sessions)
+        foreach (var sessionId in expiredIds)
         {
+            var session = await db.GameSessions
+                .FirstOrDefaultAsync(s => s.Id == sessionId, cancellationToken);
+            if (session is null)
+            {
+                continue;
+            }
+
             try
             {
                 await ProcessExpiredSessionAsync(
@@ -88,13 +121,18 @@ public class TurnTimeoutService : BackgroundService
                     publisher,
                     cancellationToken);
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                // A player action (or another would-be sweeper) won the race on
+                // this row; the mirrored deadline is re-evaluated next cycle.
+                db.Entry(session).State = EntityState.Detached;
+                _logger.LogDebug("Timeout sweep lost an optimistic race for session {SessionId}", sessionId);
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Turn timeout processing failed for session {SessionId}", session.Id);
+                _logger.LogError(ex, "Turn timeout processing failed for session {SessionId}", sessionId);
             }
         }
-
-        await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     private async Task ProcessExpiredSessionAsync(
@@ -169,7 +207,8 @@ public class TurnTimeoutService : BackgroundService
             return;
         }
 
-        session.ApplyState(result.NewState.ToJson());
+        var newStateJson = result.NewState.ToJson();
+        session.ApplyState(newStateJson);
         db.GameActionLogs.Add(GameActionLog.Create(
             session.Id,
             expiredUserId,
@@ -182,9 +221,12 @@ public class TurnTimeoutService : BackgroundService
             session.Finish();
         }
 
+        await db.SaveChangesAsync(cancellationToken);
+
         await cache.SetAsync(
             GameCacheKeys.State(session.Id),
-            result.NewState.ToJson(),
+            newStateJson,
+            TimeSpan.FromMinutes(120),
             cancellationToken);
 
         await publisher.Publish(new GameStateChanged

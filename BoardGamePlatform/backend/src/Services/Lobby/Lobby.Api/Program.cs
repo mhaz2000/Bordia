@@ -29,7 +29,19 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 
-builder.Services.AddSignalR();
+// SignalR with the Redis backplane so room broadcasts reach clients attached
+// to any Lobby replica (see the Game.Api equivalent).
+var signalRRedis = builder.Configuration.GetValue<string?>("Redis:Configuration")
+    ?? builder.Configuration.GetConnectionString("Redis");
+var signalR = builder.Services.AddSignalR();
+if (!string.IsNullOrWhiteSpace(signalRRedis))
+{
+    // StackExchange.Redis 2.8 removed the instanceName/key-prefix option
+    // entirely (passing it crashes startup); SignalR namespaces its pub/sub
+    // channels per hub, so the bare connection string is all the backplane
+    // needs on this platform-dedicated Redis.
+    signalR.AddStackExchangeRedis(signalRRedis);
+}
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

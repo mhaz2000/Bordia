@@ -61,6 +61,38 @@ public class ProcessGameActionCommandHandler : IRequestHandler<ProcessGameAction
             throw new UnauthorizedException(ErrorCodes.Common.NotAuthenticated);
         }
 
+        // Optimistic concurrency (xmin) makes session state writes race-free
+        // across instances and against the timeout sweeper. On conflict the
+        // action is re-applied to the freshly reloaded state (up to 3 attempts).
+        const int maxAttempts = 3;
+        for (var attempt = 1; ; attempt++)
+        {
+            _dbContext.ChangeTracker.Clear();
+            try
+            {
+                return await TryProcessAsync(userId, request, attempt, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < maxAttempts)
+            {
+                _logger.LogInformation(
+                    "Concurrent state change on session {SessionId}; retrying action {ActionType} (attempt {Attempt})",
+                    request.SessionId,
+                    request.ActionType,
+                    attempt + 1);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                throw new ConflictException(ErrorCodes.Game.ActionRejected);
+            }
+        }
+    }
+
+    private async Task<Result<GameState>> TryProcessAsync(
+        Guid userId,
+        ProcessGameActionCommand request,
+        int attempt,
+        CancellationToken cancellationToken)
+    {
         var session = await _dbContext.GameSessions
             .Include(s => s.Players)
             .FirstOrDefaultAsync(s => s.Id == request.SessionId && !s.IsDeleted, cancellationToken)
@@ -120,7 +152,8 @@ public class ProcessGameActionCommandHandler : IRequestHandler<ProcessGameAction
             throw new ConflictException(ErrorCodes.Game.NoEngineState);
         }
 
-        session.ApplyState(result.NewState.ToJson());
+        var newStateJson = result.NewState.ToJson();
+        session.ApplyState(newStateJson);
 
         _dbContext.GameActionLogs.Add(GameActionLog.Create(
             session.Id,
@@ -136,7 +169,7 @@ public class ProcessGameActionCommandHandler : IRequestHandler<ProcessGameAction
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        await _cache.SetAsync(GameCacheKeys.State(session.Id), result.NewState.ToJson(), cancellationToken);
+        await _cache.SetAsync(GameCacheKeys.State(session.Id), newStateJson, TimeSpan.FromMinutes(120), cancellationToken);
 
         await _publisher.Publish(new GameStateChanged
         {

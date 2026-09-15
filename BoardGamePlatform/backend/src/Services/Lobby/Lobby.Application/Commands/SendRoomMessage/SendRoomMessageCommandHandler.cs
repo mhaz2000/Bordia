@@ -3,8 +3,7 @@ using BuildingBlocks.Domain;
 using BuildingBlocks.Domain.Exceptions;
 using BuildingBlocks.Domain.Localization;
 using BuildingBlocks.Domain.Results;
-using BuildingBlocks.Infrastructure.Caching;
-using Lobby.Application.Dtos;
+using BuildingBlocks.Infrastructure.Caching;using Lobby.Application.Dtos;
 using Lobby.Application.Persistence;
 using Lobby.Application.Realtime;
 using Lobby.Domain.Entities;
@@ -23,7 +22,7 @@ public class SendRoomMessageCommandHandler : IRequestHandler<SendRoomMessageComm
     private readonly LobbyDbContext _dbContext;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUser _currentUser;
-    private readonly RedisCacheService _cache;
+    private readonly RedisCounter _counters;
     private readonly IPublisher _publisher;
 
     /// <summary>
@@ -33,13 +32,13 @@ public class SendRoomMessageCommandHandler : IRequestHandler<SendRoomMessageComm
         LobbyDbContext dbContext,
         IUnitOfWork unitOfWork,
         ICurrentUser currentUser,
-        RedisCacheService cache,
+        RedisCounter counters,
         IPublisher publisher)
     {
         _dbContext = dbContext;
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
-        _cache = cache;
+        _counters = counters;
         _publisher = publisher;
     }
 
@@ -97,17 +96,15 @@ public class SendRoomMessageCommandHandler : IRequestHandler<SendRoomMessageComm
 
     private async Task EnforceRateLimitAsync(Guid roomId, Guid userId, CancellationToken cancellationToken)
     {
-        // Fixed one-minute window per (room, user) in Redis. The soft-limit
-        // race between concurrent senders is acceptable for a UX guard whose
-        // authoritative ceiling is enforced per window.
+        // Fixed one-minute window per (room, user), counted atomically with
+        // Redis INCR so concurrent senders can never both observe the same
+        // count and slip past the cap.
         var bucket = DateTime.UtcNow.ToString("yyyyMMddHHmm");
         var key = $"lobby:chat:{roomId}:{userId}:{bucket}";
-        var count = await _cache.GetAsync<int>(key, cancellationToken);
-        if (count >= SendRoomMessageCommand.MaxPerMinute)
+        var count = await _counters.IncrementAsync(key, TimeSpan.FromSeconds(70), cancellationToken);
+        if (count > SendRoomMessageCommand.MaxPerMinute)
         {
             throw new ConflictException(ErrorCodes.Lobby.ChatRateLimited);
         }
-
-        await _cache.SetAsync(key, count + 1, TimeSpan.FromSeconds(70), cancellationToken);
     }
 }

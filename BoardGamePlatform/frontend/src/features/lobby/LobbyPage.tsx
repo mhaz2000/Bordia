@@ -36,12 +36,14 @@ export function LobbyPage() {
     queryKey: ['lobby', 'rooms'],
     queryFn: lobbyApi.listRooms,
     refetchInterval: 10000,
+    refetchIntervalInBackground: false,
   })
 
   const { data: mySessions = [] } = useQuery({
     queryKey: ['game', 'mySessions'],
     queryFn: gameApi.mySessions,
     refetchInterval: 15000,
+    refetchIntervalInBackground: false,
     staleTime: 5000,
   })
   const activeGames = mySessions.filter((s) => s.status === 'Active')

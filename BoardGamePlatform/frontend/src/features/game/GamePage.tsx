@@ -140,7 +140,7 @@ export function GamePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${currentState?.gameType === "Splendor" ? "bg-slate-950" : "bg-gray-50"}`}>
       <Toaster />
       <header className="bg-slate-950/85 backdrop-blur border-b border-white/10 sticky top-0 z-10 shadow-lg shadow-slate-950/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

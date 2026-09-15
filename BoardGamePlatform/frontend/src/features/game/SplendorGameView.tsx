@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CheckIcon,
   ClockIcon,
@@ -72,6 +72,9 @@ interface TurnFlow {
 type PurchaseTarget = { source: 'market'; cardId: string } | { source: 'reserved'; index: number }
 
 const KINDS: GemKind[] = [...GEM_ORDER, 'gold']
+
+/** Hand-placed wobble so market rows read as laid-out cards, not a UI grid. */
+const MARKET_TILT = ['rotate-[-0.7deg]', 'rotate-[0.5deg]', 'rotate-[-0.4deg]', 'rotate-[0.9deg]']
 
 type TFn = (key: string, params?: Record<string, string | number>) => string
 
@@ -478,10 +481,15 @@ export function SplendorGameView({ state, session, userId, onAction, isSending }
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       {/* ============================ TABLE ============================ */}
-      <div className="relative overflow-hidden rounded-3xl border border-amber-200/15 bg-gradient-to-b from-emerald-950 via-teal-950 to-slate-950 p-4 shadow-2xl sm:p-6">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,191,36,0.10),transparent_55%)]" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(2,6,23,0.6),transparent_60%)]" />
-        <div className="pointer-events-none absolute inset-3 rounded-2xl border border-amber-200/10" />
+      {/* Wooden rim */}
+      <div className="relative rounded-[2rem] bg-gradient-to-br from-amber-800 via-yellow-950 to-stone-950 p-2.5 shadow-2xl sm:p-3.5">
+        <div className="pointer-events-none absolute inset-0 rounded-[2rem] opacity-25 [background:repeating-linear-gradient(92deg,rgba(0,0,0,0.5)_0_3px,transparent_3px_12px)]" />
+        <div className="pointer-events-none absolute inset-0 rounded-[2rem] shadow-[inset_0_1px_0_rgba(255,222,160,0.4),inset_0_-3px_8px_rgba(0,0,0,0.65)]" />
+        {/* Felt playing surface */}
+        <div className="relative overflow-hidden rounded-[1.5rem] border border-amber-200/25 bg-gradient-to-b from-emerald-950 via-teal-950 to-slate-950 px-4 py-4 shadow-[inset_0_3px_26px_rgba(0,0,0,0.7)] sm:px-5">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,191,36,0.07),transparent_55%)]" />
+          <div className="pointer-events-none absolute inset-0 opacity-[0.05] [background-image:radial-gradient(rgba(255,255,255,0.8)_0.5px,transparent_0.5px)] [background-size:7px_7px]" />
+          <div className="pointer-events-none absolute inset-2 rounded-[1.25rem] border border-amber-200/10" />
 
         {/* turn banner */}
         <div className="relative flex flex-wrap items-center justify-center gap-2">
@@ -495,34 +503,11 @@ export function SplendorGameView({ state, session, userId, onAction, isSending }
           )}
         </div>
 
-        {/* nobles: aligned directly above the market card columns */}
-        <div className="relative mt-4">
-          <p className="mb-1.5 text-center text-[10px] font-semibold uppercase tracking-widest text-amber-200/50">
-            {t('splendor.noblesTitle')}
-          </p>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <div aria-hidden className="w-[7.5rem] flex-shrink-0" />
-            <div className="flex flex-1 flex-wrap items-center justify-center gap-2 sm:gap-2.5">
-              {splendor.NoblesInMarket.length === 0 ? (
-                <span className="py-2 text-xs text-white/40">{t('splendor.noNoblesLeft')}</span>
-              ) : (
-                splendor.NoblesInMarket.map((id) => {
-                  const noble = nobleById(id)
-                  if (!noble) return null
-                  return (
-                    <span key={id} ref={flightAnchor(`noble:${id}`)} className="inline-block">
-                      <SplendorNobleVisual noble={noble} size="sm" eligible={viewerEligible.includes(id)} />
-                    </span>
-                  )
-                })
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* market: level 3 at the back, level 1 nearest the player (rulebook stacking) */}
-        <div className="relative mt-3 space-y-3">
-          {[3, 2, 1].map((tier) => {
+        {/* market + nobles side by side, like the physical setup */}
+        <div className="relative mt-4 flex flex-col items-center justify-center gap-4 xl:flex-row xl:items-stretch">
+          {/* market: level 3 at the back, level 1 nearest the player (rulebook stacking) */}
+          <div className="relative space-y-2">
+            {[3, 2, 1].map((tier) => {
             const deckCount = splendor.DeckCounts[tier - 1] ?? 0
             const slots = splendor.Market.slice((tier - 1) * 4, tier * 4)
             return (
@@ -604,7 +589,7 @@ export function SplendorGameView({ state, session, userId, onAction, isSending }
                               : ''
                         } ${isTarget ? '-translate-y-1 ring-2 ring-amber-300' : ''}`}
                       >
-                        <SplendorCardVisual card={card} size="md" />
+                        <SplendorCardVisual card={card} size="md" className={MARKET_TILT[slot % 4]} />
                         {isMyTurn && affordable && (
                           <>
                             <span className="a-shine rounded-[12px]" />
@@ -620,10 +605,33 @@ export function SplendorGameView({ state, session, userId, onAction, isSending }
               </div>
             )
           })}
+          </div>
+
+          {/* nobles: their own strip beside the market, as on the real table */}
+          <div className="flex flex-shrink-0 flex-col items-center xl:justify-center">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-amber-200/50">
+              {t('splendor.noblesTitle')}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2 xl:flex-col xl:items-center xl:gap-2.5">
+              {splendor.NoblesInMarket.length === 0 ? (
+                <span className="py-2 text-xs text-white/40">{t('splendor.noNoblesLeft')}</span>
+              ) : (
+                splendor.NoblesInMarket.map((id) => {
+                  const noble = nobleById(id)
+                  if (!noble) return null
+                  return (
+                    <span key={id} ref={flightAnchor(`noble:${id}`)} className="inline-block">
+                      <SplendorNobleVisual noble={noble} size="sm" eligible={viewerEligible.includes(id)} />
+                    </span>
+                  )
+                })
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* token bank */}
-        <div className="relative mt-6 rounded-2xl border border-white/10 bg-black/25 p-3 backdrop-blur-[2px]">
+        {/* token bank: recessed felt tray */}
+        <div className="relative mt-5 rounded-[1.3rem] border border-amber-200/15 bg-black/25 p-3 shadow-[inset_0_3px_14px_rgba(0,0,0,0.6)]">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-200/50">{t('splendor.gemSupply')}</p>
           </div>
@@ -778,6 +786,7 @@ export function SplendorGameView({ state, session, userId, onAction, isSending }
           })}
         </div>
         {meIndex < 0 && <p className="relative mt-6 text-center text-xs text-amber-100/60">{t('splendor.spectator')}</p>}
+        </div>
       </div>
 
       {/* ============================ STATUS STRIP ============================ */}

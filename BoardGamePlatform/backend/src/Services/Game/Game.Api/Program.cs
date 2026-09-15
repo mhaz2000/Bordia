@@ -29,7 +29,20 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddControllers();
 
-builder.Services.AddSignalR();
+// SignalR with the Redis backplane: hubs can run on multiple instances and
+// group broadcasts (per-session state pushes, takeovers) still reach clients
+// connected to other replicas.
+var signalRRedis = builder.Configuration.GetValue<string?>("Redis:Configuration")
+    ?? builder.Configuration.GetConnectionString("Redis");
+var signalR = builder.Services.AddSignalR();
+if (!string.IsNullOrWhiteSpace(signalRRedis))
+{
+    // StackExchange.Redis 2.8 removed the instanceName/key-prefix option
+    // entirely (passing it crashes startup); SignalR namespaces its pub/sub
+    // channels per hub, so the bare connection string is all the backplane
+    // needs on this platform-dedicated Redis.
+    signalR.AddStackExchangeRedis(signalRRedis);
+}
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

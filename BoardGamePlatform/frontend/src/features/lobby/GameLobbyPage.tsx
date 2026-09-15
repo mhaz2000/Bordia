@@ -78,6 +78,7 @@ export function GameLobbyPage() {
     queryKey: ['lobby', 'rooms'],
     queryFn: lobbyApi.listRooms,
     refetchInterval: 5000,
+    refetchIntervalInBackground: false,
   })
   const gameRooms = rooms.filter((r) => r.gameType === gameTypeParam)
   const seatedPlayers = gameRooms.reduce((sum, r) => sum + r.players.length, 0)
@@ -86,6 +87,7 @@ export function GameLobbyPage() {
     queryKey: ['game', 'mySessions'],
     queryFn: gameApi.mySessions,
     refetchInterval: 15000,
+    refetchIntervalInBackground: false,
     staleTime: 5000,
   })
   const activeGames = mySessions.filter((s) => s.status === 'Active' && s.gameType === gameTypeParam)

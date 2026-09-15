@@ -1,3 +1,5 @@
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,12 +28,43 @@ builder.Services.AddCors(options =>
             .AllowCredentials());
 });
 
+// Abuse backstop at the edge: fixed-window limits per client IP, deliberately
+// generous so families/NATs sharing one IP playing together are never hit -
+// these stop scripted floods and credential brute force, not players.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    static FixedWindowRateLimiterOptions Window(int permits) => new()
+    {
+        PermitLimit = permits,
+        Window = TimeSpan.FromMinutes(1),
+        QueueLimit = 0
+    };
+
+    options.AddPolicy("auth", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => Window(30)));
+
+    options.AddPolicy("lobby-api", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => Window(240)));
+
+    options.AddPolicy("game-api", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => Window(300)));
+});
+
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 
 app.UseRouting();
 app.UseCors("Frontend");
+app.UseRateLimiter();
 
 app.MapReverseProxy();
 

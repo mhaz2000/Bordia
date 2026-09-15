@@ -110,6 +110,16 @@ public class GlobalExceptionHandlerMiddleware
                 ErrorCodes.Common.UnauthorizedAccess,
                 null),
 
+            // Optimistic-concurrency loss (xmin) surfaced by paths that do not
+            // retry internally (reconnect, pause/resume, cleanup): a truthful
+            // localized 409 instead of a 500 with an unhandled-exception log.
+            Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException => (
+                HttpStatusCode.Conflict,
+                ErrorCodes.Titles.Conflict,
+                ErrorCatalog.Localize(ErrorCodes.Common.ConcurrencyConflict, Array.Empty<object?>(), lang),
+                ErrorCodes.Common.ConcurrencyConflict,
+                null),
+
             _ => (
                 HttpStatusCode.InternalServerError,
                 ErrorCodes.Titles.InternalError,
