@@ -7,6 +7,7 @@ import { gameApi } from '@/shared/api/client'
 import { UnoGameView } from '@/features/game/UnoGameView'
 import { SilverGameView } from '@/features/game/SilverGameView'
 import { SplendorGameView } from '@/features/game/SplendorGameView'
+import { AzulGameView } from '@/features/game/AzulGameView'
 import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
@@ -140,7 +141,7 @@ export function GamePage() {
   }
 
   return (
-    <div className={`min-h-screen ${currentState?.gameType === "Splendor" ? "bg-slate-950" : "bg-gray-50"}`}>
+    <div className={`min-h-screen ${currentState?.gameType === "Splendor" || currentState?.gameType === "Azul" ? "bg-slate-950" : "bg-gray-50"}`}>
       <Toaster />
       <header className="bg-slate-950/85 backdrop-blur border-b border-white/10 sticky top-0 z-10 shadow-lg shadow-slate-950/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -205,6 +206,14 @@ export function GamePage() {
           />
         ) : currentState?.gameType === 'Splendor' ? (
           <SplendorGameView
+            state={currentState}
+            session={currentSession}
+            userId={user?.id}
+            onAction={handleAction}
+            isSending={isSendingAction}
+          />
+        ) : currentState?.gameType === 'Azul' ? (
+          <AzulGameView
             state={currentState}
             session={currentSession}
             userId={user?.id}

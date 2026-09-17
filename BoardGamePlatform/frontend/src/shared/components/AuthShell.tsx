@@ -33,11 +33,12 @@ export function AuthShell({ children }: { children: ReactNode }) {
                 { g: 'from-red-500 via-orange-500 to-amber-400', n: 'UNO' },
                 { g: 'from-indigo-500 via-slate-500 to-violet-500', n: 'Silver' },
                 { g: 'from-emerald-500 via-teal-500 to-cyan-500', n: 'Splendor' },
+                { g: 'from-sky-400 via-blue-600 to-indigo-800', n: 'Azul' },
               ].map((x, i) => (
                 <div
                   key={x.n}
                   className={`flex h-20 w-32 items-center justify-center rounded-xl bg-gradient-to-br ${x.g} shadow-xl ring-1 ring-white/25 ${
-                    i === 0 ? '-rotate-3' : i === 1 ? 'rotate-1' : 'rotate-5'
+                    i === 0 ? '-rotate-3' : i === 1 ? '-rotate-1' : i === 2 ? 'rotate-2' : 'rotate-5'
                   }`}
                 >
                   <span className="-rotate-3 text-sm font-black tracking-widest text-white drop-shadow-lg">

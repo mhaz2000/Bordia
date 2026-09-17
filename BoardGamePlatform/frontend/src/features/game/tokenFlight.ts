@@ -57,14 +57,14 @@ export interface Flight {
   delay?: number
 }
 
-function fly(clone: HTMLElement, from: DOMRect, to: DOMRect, delay: number) {
+function fly(clone: HTMLElement, from: DOMRect, to: DOMRect, delay: number, duration = 640, arc = 60, endScale = 0.45) {
   const w = clone.offsetWidth
   const h = clone.offsetHeight
   const x0 = from.left + from.width / 2 - w / 2
   const y0 = from.top + from.height / 2 - h / 2
   const x1 = to.left + to.width / 2 - w / 2
   const y1 = to.top + to.height / 2 - h / 2
-  const mid = Math.min(y0, y1) - 60
+  const mid = Math.min(y0, y1) - arc
   clone.style.position = 'fixed'
   clone.style.left = '0'
   clone.style.top = '0'
@@ -75,12 +75,34 @@ function fly(clone: HTMLElement, from: DOMRect, to: DOMRect, delay: number) {
     [
       { transform: `translate(${x0}px, ${y0}px) scale(1.1)`, opacity: 1 },
       { transform: `translate(${(x0 + x1) / 2}px, ${mid}px) scale(1.25)`, opacity: 1, offset: 0.5 },
-      { transform: `translate(${x1}px, ${y1}px) scale(0.45)`, opacity: 0.95 },
+      { transform: `translate(${x1}px, ${y1}px) scale(${endScale})`, opacity: 0.95 },
     ],
-    { duration: 640, delay, easing: 'cubic-bezier(0.3, 0.65, 0.3, 1)', fill: 'both' },
+    { duration, delay, easing: 'cubic-bezier(0.3, 0.65, 0.3, 1)', fill: 'both' },
   )
   anim.onfinish = () => clone.remove()
   anim.oncancel = () => clone.remove()
+}
+
+/** Current geometry of a registered anchor (or its last known rect). */
+export function anchorRect(key: string): DOMRect | null {
+  return rectOf(key, '')
+}
+
+/**
+ * Generic single-element flight used by other game views (Azul): travel a
+ * caller-built clone between two registered anchors. No-op when either anchor
+ * has never been mounted. Purely cosmetic - the state stays authoritative.
+ */
+export function flyBetween(
+  clone: HTMLElement,
+  fromKey: string,
+  toKey: string,
+  options: { toFallback?: string; delay?: number; duration?: number; arc?: number; endScale?: number } = {},
+) {
+  const to = rectOf(toKey, options.toFallback ?? '')
+  const from = rectOf(fromKey, options.toFallback ?? '')
+  if (!to || !from) return
+  fly(clone, from, to, options.delay ?? 0, options.duration ?? 640, options.arc ?? 60, options.endScale ?? 0.45)
 }
 
 const CHIP = 44

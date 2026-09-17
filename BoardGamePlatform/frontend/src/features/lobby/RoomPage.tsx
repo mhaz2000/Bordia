@@ -26,6 +26,7 @@ import { UnoCardVisual, UnoCardBackVisual } from '@/shared/components/UnoCardVis
 import { SilverCardVisual, SilverCardBack } from '@/shared/components/SilverCardVisual'
 import { MoonIcon as MoonSolid } from '@heroicons/react/24/solid'
 import { GemChip } from '@/shared/components/SplendorCardVisual'
+import { AzulMarker, AzulTile } from '@/shared/components/AzulBoardVisuals'
 import { useGameInfo } from '@/features/lobby/gameMeta'
 import type { LobbyRoom, LobbyRoomPlayer } from '@/shared/api/lobby'
 
@@ -302,6 +303,19 @@ export function RoomPage() {
               </div>
               <div className="animate-floaty" style={{ animationDelay: '1.2s' }}>
                 <GemChip color="gold" size="md" className="rotate-[10deg]" />
+              </div>
+            </div>
+          )}
+          {currentRoom.gameType === 'Azul' && (
+            <div className="pointer-events-none absolute end-40 top-1/2 hidden -translate-y-1/2 items-center gap-2 lg:flex">
+              <div className="animate-floaty">
+                <AzulTile color={0} size="lg" className="rotate-[-10deg]" />
+              </div>
+              <div className="animate-floaty-delayed">
+                <AzulTile color={2} size="lg" />
+              </div>
+              <div className="animate-floaty" style={{ animationDelay: '1.2s' }}>
+                <AzulMarker size="md" className="rotate-[10deg]" />
               </div>
             </div>
           )}

@@ -8,12 +8,13 @@
 | UNO (first game) | COMPLETE — see [docs/games/uno.md](docs/games/uno.md) |
 | **Silver** | **COMPLETE — see [docs/games/silver.md](docs/games/silver.md)** |
 | **Splendor** | **COMPLETE — see [docs/games/splendor.md](docs/games/splendor.md)** |
+| **Azul** | **COMPLETE — see [docs/games/azul.md](docs/games/azul.md)** |
 
 ## Objective
 
 Build a production-ready online multiplayer board game platform.
 
-The foundation phase established the architecture that all future development builds upon: infrastructure, communication, authentication, rooms, and the game engine foundation. That work is **complete**, and three games (**UNO**, **Silver**, **Splendor**) have been implemented end to end on top of it.
+The foundation phase established the architecture that all future development builds upon: infrastructure, communication, authentication, rooms, and the game engine foundation. That work is **complete**, and four games (**UNO**, **Silver**, **Splendor**, **Azul**) have been implemented end to end on top of it (Azul: backend 2026-09-15, frontend 2026-09-16).
 
 The current goal is implementing further games on the existing architecture, with **zero architectural changes per game** — see *Game Documentation* and the integration checklist for the pattern.
 
@@ -23,7 +24,7 @@ The platform is designed to allow implementing games like:
 - Silver *(implemented)*
 - Splendor
 - Wingspan
-- Azul
+- Azul *(implemented — backend 2026-09-15, frontend 2026-09-16)*
 - Terraforming Mars
 - Ticket to Ride
 - etc.
@@ -383,6 +384,7 @@ Games are implemented as separate projects under `Games/`, one per game, each re
 - `Games/UNO/` — implemented end to end (engine, registration, frontend view, localization); see [docs/games/uno.md](docs/games/uno.md).
 - `Games/Silver/` — implemented end to end (engine, player-view projection, frontend view, localization); see [docs/games/silver.md](docs/games/silver.md).
 - `Games/Splendor/` — implemented end to end (engine, viewer-independent player-view projection, registration, frontend views with original SVG card/noble/token art, localization); see [docs/games/splendor.md](docs/games/splendor.md).
+- `Games/Azul/` — implemented end to end (engine, viewer-independent player-view projection that hides the bag order, registration, error catalogs, verification harness, frontend views with original SVG Persian haft-rangi tile art, the printed wall mosaic and §29 flight animations, localization); see [docs/games/azul.md](docs/games/azul.md).
 
 Splendor implementation was explicitly started by owner decision 2026-09-13 (see the Critical Decisions of [docs/games/splendor.md](docs/games/splendor.md)); the frontend followed by owner decision 2026-09-14. Both are complete.
 
@@ -502,7 +504,7 @@ Do NOT implement:
 
 - Splendor rules beyond the base game (no Cities of Splendor / Trading Posts / The Orient / The Strongholds modules, no Splendor Duel / Marvel variants, no expansions, fan variants, or house rules) — see [docs/games/splendor.md](docs/games/splendor.md)
 - Wingspan
-- Azul
+- ~~Azul~~ — *implemented (engine 2026-09-15 by owner decision; frontend 2026-09-16 — see [docs/games/azul.md](docs/games/azul.md))*
 - Silver rules beyond the base game (no Silver Bullet / Silver Coin / Silver Dagger decks, no combining decks, no variants or house rules)
 - ~~Chat~~ — *implemented 2026-09-14 by owner decision; see Critical Decisions*
 - Friends
@@ -836,6 +838,7 @@ live in `docs/games/`, not in this file:
 | UNO | Implemented | [docs/games/uno.md](docs/games/uno.md) |
 | Silver | Implemented | [docs/games/silver.md](docs/games/silver.md) |
 | Splendor | Implemented (backend 2026-09-13, frontend 2026-09-14) | [docs/games/splendor.md](docs/games/splendor.md) |
+| Azul | Implemented (backend 2026-09-15, frontend 2026-09-16) | [docs/games/azul.md](docs/games/azul.md) |
 
 This file remains authoritative for the platform: architecture, service boundaries, the
 `IGame` / `IPlayerViewGame` engine contracts, shared persistence/localization/SignalR

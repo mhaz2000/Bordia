@@ -9,11 +9,15 @@ interface ModalProps {
   title?: string
   children: ReactNode
   className?: string
+  /** Dark-glass variant for game tables (default: light card). */
+  dark?: boolean
 }
 
-export function Modal({ isOpen, onClose, title, children, className = '' }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, className = '', dark = false }: ModalProps) {
   const { t } = useI18n()
   if (!isOpen) return null
+
+  const hasMaxWidth = /\bmax-w-/.test(className)
 
   return createPortal(
     <Fragment>
@@ -25,21 +29,23 @@ export function Modal({ isOpen, onClose, title, children, className = '' }: Moda
       <div className="fixed inset-0 z-50 overflow-y-auto">
         <div className="flex min-h-full items-center justify-center p-4">
           <div
-            className={`w-full max-w-lg bg-white rounded-xl shadow-xl transform transition-all ${className}`}
+            className={`w-full ${hasMaxWidth ? '' : 'max-w-lg'} rounded-xl transform transition-all ${
+              dark ? `border border-sky-200/20 bg-slate-900 text-sky-50 shadow-[0_24px_70px_rgba(0,0,0,0.75)] ${className}` : `bg-white shadow-xl ${className}`
+            }`}
             role="dialog"
             aria-modal="true"
             aria-labelledby={title ? 'modal-title' : undefined}
           >
             {(title) && (
-              <div className="flex items-center justify-between p-4 border-b">
+              <div className={`flex items-center justify-between p-4 border-b ${dark ? 'border-sky-200/10' : ''}`}>
                 {title && (
-                  <h2 id="modal-title" className="text-lg font-semibold text-gray-900">
+                  <h2 id="modal-title" className={`text-lg font-semibold ${dark ? 'text-sky-50' : 'text-gray-900'}`}>
                     {title}
                   </h2>
                 )}
                 <button
                   onClick={onClose}
-                  className="p-1 text-gray-400 hover:text-gray-600 transition-colors rounded-lg hover:bg-gray-100"
+                  className={`transition-colors rounded-lg p-1 ${dark ? 'text-sky-200/50 hover:bg-white/10 hover:text-white' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
                   aria-label={t('common.closeModal')}
                 >
                   <XMarkIcon className="w-5 h-5" />

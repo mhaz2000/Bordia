@@ -28,6 +28,7 @@ import { UnoCardVisual, UnoCardBackVisual } from '@/shared/components/UnoCardVis
 import { SilverCardVisual, SilverCardBack } from '@/shared/components/SilverCardVisual'
 import { MoonIcon as MoonSolid } from '@heroicons/react/24/solid'
 import { GemChip, SplendorCardVisual } from '@/shared/components/SplendorCardVisual'
+import { AzulFactoryDisc, AzulTile } from '@/shared/components/AzulBoardVisuals'
 import { SplendorNobleVisual } from '@/shared/components/SplendorNobleVisual'
 import { cardById, nobleById } from '@/features/game/splendor'
 import { useI18n } from '@/i18n/I18nProvider'
@@ -62,6 +63,7 @@ export function GameLobbyPage() {
   const isUno = gameTypeParam === 'UNO'
   const isSilver = gameTypeParam === 'Silver'
   const isSplendor = gameTypeParam === 'Splendor'
+  const isAzul = gameTypeParam === 'Azul'
   const { t } = useI18n()
   const navigate = useNavigate()
   const { createRoom, joinRoom, joinRoomByCode, joinRoomByCodePending, isCreating } = useLobby()
@@ -285,7 +287,31 @@ export function GameLobbyPage() {
               </div>
             </>
           )}
-          {!isUno && !isSilver && !isSplendor && (
+          {isAzul && (
+            <>
+              {/* Azul: factory discs and floating azulejo tiles */}
+              <div className="pointer-events-none absolute -start-3 top-9 hidden sm:block">
+                <div className="animate-floaty">
+                  <AzulFactoryDisc tiles={[0, 1, 2, 3]} index={0} />
+                </div>
+              </div>
+              <div className="pointer-events-none absolute end-6 top-8 hidden items-start gap-2 md:flex">
+                <div className="animate-floaty-delayed">
+                  <AzulTile color={0} size="lg" className="rotate-[-8deg] shadow-2xl" />
+                </div>
+                <div className="mt-6 animate-floaty" style={{ animationDelay: '0.6s' }}>
+                  <AzulTile color={4} size="lg" className="rotate-[6deg] shadow-2xl" />
+                </div>
+                <div className="mt-12 animate-floaty-delayed" style={{ animationDelay: '1.3s' }}>
+                  <AzulTile color={1} size="lg" className="rotate-[14deg] shadow-2xl" />
+                </div>
+                <div className="mt-2 animate-floaty" style={{ animationDelay: '1.8s' }}>
+                  <AzulFactoryDisc tiles={[2, 4, 3]} index={1} />
+                </div>
+              </div>
+            </>
+          )}
+          {!isUno && !isSilver && !isSplendor && !isAzul && (
             <div className="pointer-events-none absolute end-8 top-8 hidden md:block opacity-20">
               <span className="text-[10rem] font-black text-white leading-none">{info.title.charAt(0)}</span>
             </div>
