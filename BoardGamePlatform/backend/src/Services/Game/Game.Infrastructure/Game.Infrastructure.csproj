@@ -7,6 +7,7 @@
     <ProjectReference Include="..\..\..\Games\Silver\Silver.csproj" />
     <ProjectReference Include="..\..\..\Games\Splendor\Splendor.csproj" />
     <ProjectReference Include="..\..\..\Games\Azul\Azul.csproj" />
+    <ProjectReference Include="..\..\..\Games\Quoridor\Quoridor.csproj" />
   </ItemGroup>
 
   <ItemGroup>

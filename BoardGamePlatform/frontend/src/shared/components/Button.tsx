@@ -5,10 +5,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md' | 'lg'
   isLoading?: boolean
   asChild?: boolean
+  href?: string
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'primary', size = 'md', isLoading, disabled, className = '', children, asChild, ...props }, ref) => {
+  ({ variant = 'primary', size = 'md', isLoading, disabled, className = '', children, asChild, href, ...props }, ref) => {
     const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
     
     const variants = {
@@ -31,12 +32,16 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       ? (({ form, formAction, formEncType, formMethod, formNoValidate, formTarget, ...rest }: ButtonHTMLAttributes<HTMLButtonElement>) => rest)(props as ButtonHTMLAttributes<HTMLButtonElement>)
       : props
 
+    // Add href when rendering as anchor
+    const anchorProps = asChild && href ? { href } : {}
+
     return (
       <FinalComponent
         ref={ref}
         className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
         disabled={disabled || isLoading}
         {...finalProps as any}
+        {...anchorProps}
       >
         {isLoading && (
           <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

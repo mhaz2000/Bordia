@@ -115,7 +115,7 @@ Scope exclusions (all deliberate, mirroring the AGENTS.md Out-of-Scope conventio
 ## 3. Canonical coordinates and orientation
 
 The board is an absolute, physical, non-rotating reference frame. The screen rendering may
-spin a view toward a seat (frontend, #28), but **coordinates never change** and the board is
+spin a view toward a seat (frontend, #26), but **coordinates never change** and the board is
 **never mirrored for RTL** (#33).
 
 - **Cells** are indexed `(r, c)` with `0 ≤ r ≤ 8` (row; top/North = 0) and `0 ≤ c ≤ 8`
@@ -128,38 +128,39 @@ row r=8   [0,8] [1,8] ...                ...                [8,8]   <- East colu
 
 - **Grooves** (the channels walls sit in) live *between* cells.
   - Horizontal groove at **row-edge** `rw`, `0 ≤ rw ≤ 7`, runs between row `rw` and row
-    `rw+1`.  Within that groove, the **unit edges** are indexed by column `c`, `0 ≤ c ≤ 7`
+    `rw+1`.  Within that groove, the **unit edges** are indexed by column `c`, `0 ≤ c ≤ 8`
     (the edge between cell (`rw`,`c`) and (`rw+1`,`c`)).
   - Vertical groove at **column-edge** `cw`, `0 ≤ cw ≤ 7`, runs between column `cw` and
-    column `cw+1`.  Within that groove, the unit edges are indexed by row `r`, `0 ≤ r ≤ 7`
+    column `cw+1`.  Within that groove, the unit edges are indexed by row `r`, `0 ≤ r ≤ 8`
     (the edge between cell (`r`,`cw`) and (`r`,`cw+1`)).
 
-- **Wall slot** (canonical representation, mirrors the frontend rendering model #28): a wall
+- **Wall slot** (canonical representation, mirrors the frontend rendering model #26): a wall
   **covers two consecutive unit edges** in one groove.
 
   - `H(rw, c)` — horizontal wall in row-edge `rw` covering unit edges (`rw`,`c`) and
-    (`rw`,`c+1`), with `0 ≤ rw ≤ 7` and **`0 ≤ c ≤ 6`**.
+    (`rw`,`c+1`), with `0 ≤ rw ≤ 7` and **`0 ≤ c ≤ 7`**.
   - `V(r, cw)` — vertical wall in column-edge `cw` covering unit edges (`r`,`cw`) and
-    (`r+1`,`cw`), with **`0 ≤ r ≤ 6`** and `0 ≤ cw ≤ 7`.
+    (`r+1`,`cw`), with **`0 ≤ r ≤ 7`** and `0 ≤ cw ≤ 7`.
 
-  `c ≤ 6` for `H` and `r ≤ 6` for `V` are exactly the "may not jut out of the board"
-  constraint.  The pair of indexes always names the **lower/left-most unit edge of the two**
-  and the orientation selects which axis the other unit edge extends along.  An alternative
-  lattice-point view — "wall at the crossing `(x,y)` facing `h|v`" — is a pure
-  re-encoding; the engine canonicalizes to the slot form above and so does the action
-  payload (#16).
+  `c ≤ 7` for `H` and `r ≤ 7` for `V` are exactly the "may not jut out of the board"
+  constraint — a wall flush with the East rim covers the unit edges 7 and 8 (the last
+  column), so index 7 is the last legal home for its first edge.  The pair of indexes always
+  names the **lower/left-most unit edge of the two** and the orientation selects which axis
+  the other unit edge extends along.  An alternative lattice-point view — "wall at the
+  crossing `(x,y)` facing `h|v`" — is a pure re-encoding; the engine canonicalizes to the
+  slot form above and so does the action payload (#16).
 
 ```
 Vertical wall V(r, cw):  two unit edges stacked in column-edge cw:
    cell(r,   cw) | cell(r,   cw+1)
     ____v-unit____        <- unit edge (r,   cw)
-    ____v-unit____        <- unit edge (r+1, cw)   (r <= 6)
+    ____v-unit____        <- unit edge (r+1, cw)   (r <= 7)
    cell(r+1, cw) | cell(r+1, cw+1)
 
 Horizontal wall H(rw, c):
    cell(rw,   )  cell(rw + 1, )   (interior cells omitted)
       [ h-unit ]  [ h-unit ]
-   edge (rw, c)   edge (rw, c+1)     (c <= 6)
+   edge (rw, c)   edge (rw, c+1)     (c <= 7)
 ```
 
 ---
@@ -293,19 +294,24 @@ a legal straight jump (OD-5, majority rule — verify vs the printed rulebook).
 ## 8. Wall placement — legality 1: slot, bounds, overlap
 
 - A wall placement action names a **slot** `(Row, Col, Orientation)` in the canonical edge
-  form of #3 (`H`/`V`, `H(Row,Col)` covers edges `(Row,Col)`+`(Row,Col+1)` with `Col ≤ 6`;
-  `V(Row,Col)` covers `(Row,Col)`+`(Row+1,Col)` with `Row ≤ 6`).
-- **Bounds:** the slot must be fully inside the board — equivalent to `Col ≤ 6` for `H` and
-  `Row ≤ 6` for `V` — else `quoridor.wallOutOfBounds`.
+  form of #3 (`H`/`V`, `H(Row,Col)` covers edges `(Row,Col)`+`(Row,Col+1)` with `Col ≤ 7`;
+  `V(Row,Col)` covers `(Row,Col)`+`(Row+1,Col)` with `Row ≤ 7`).
+- **Bounds:** the slot must be fully inside the board — equivalent to `Col ≤ 7` for `H` and
+  `Row ≤ 7` for `V` — else `quoridor.wallOutOfBounds`.  A wall flush with the board edge
+  (East rim for `H`, South rim for `V`) is legal.
 - **Overlap:** a wall may be placed only where it shares **no unit edge** with any existing
-  wall.  Walls may **touch at a single lattice point (corner)** — e.g. two `H` walls in the
-  same row-edge with a shared vertex but no shared unit edge, or an `H` and a `V` wall whose
-  segments cross at their single meeting point (the `+` junction).  They may **never share a
-  unit edge** (two `H` walls covering a common column edge; a `V` that lands exactly along an
-  already-covered edge).  Enforcement is purely geometric: the candidate wall's 2 unit edges
-  must not intersect the union of every existing wall's 2 unit edges.  Violation →
-  `quoridor.wallOverlap`.  (OD-6 records that corner-touching is the prescribed reading;
-  the only thing ever forbidden is shared-edge overlap.)
+  wall, and where a perpendicular wall would not **cross through its middle** (the `+`
+  junction — each wall passes through the other's interior point).  Walls may **touch at a
+  single lattice point (corner)** — two `H` walls in the same row-edge with a shared vertex
+  but no shared unit edge, or an `H` and a `V` wall whose segments meet end-to-side
+  (`T`-touch) or corner-to-corner.  They may **never share a unit edge** (two `H` walls
+  covering a common column edge; a `V` that lands exactly along an already-covered edge),
+  and an `H`/`V` pair with the **same `(Row, Col)` slot** is a visible `+` cross → illegal.
+  Enforcement is purely geometric: the candidate wall's 2 unit edges must not intersect the
+  union of every existing wall's 2 unit edges, and its slot must not equal any perpendicular
+  existing wall's slot.  Violation → `quoridor.wallOverlap`.  (OD-6 records that
+  corner/tangential touching is the prescribed reading; the only things ever forbidden are
+  shared-edge overlap and the `+` slot-crossing.)
 - Placing a wall where a pawn currently stands is **legal** — pawns occupy cells, walls
   occupy grooves, they cannot collide.  Path preservation (#9) still applies, and a pawn may
   later be blocked by a wall placed adjacent to it, including while it stands beside it.
@@ -354,8 +360,8 @@ The engine follows the platform `IGame` contract exactly like Azul/UNO:
 - `GetValidActions(state, playerId)` — full enumeration of every legal `MovePawn` target and
   every legal `PlaceWall` slot for the acting player, or an **empty list** when `playerId`
   is not the current player / the game is over.  Number of entries bounded: ≤ 4 move
-  targets (`≤ 4` because a pawn has 4 neighbours at most; jump targets included) and ≤ 112
-  wall slots (8×7×2 − overlaps − path-blocked).  Harness asserts this bound (#36).
+  targets (`≤ 4` because a pawn has 4 neighbours at most; jump targets included) and ≤ 128
+  wall slots (8×8×2 − overlaps − path-blocked).  Harness asserts this bound (#36).
 - Actions are **atomic**: a `PlaceWall` that technically succeeds but the action's `SequenceNumber`
   is stale (already applied) is handled by the platform concurrency layer (#19), not the engine —
   but the engine must still make identical actions idempotency-safe to the extent that a
@@ -383,7 +389,7 @@ state/action/event contracts in #14–#20, concurrency in #19, the frontend in #
 
 ## 14. State — `QuoridorState`
 
-Mirrored PascalCase on the client (`quoridor.ts`, #26).  `QuoridorState` is stored, like all
+Mirrored PascalCase on the client (`quoridor.ts`, #21).  `QuoridorState` is stored, like all
 games, as a JSON string in `GameState.Data["QuoridorState"]`, read via `TryGetString`
 (platform 2026-09-06 decision).  `PlayerNames` joins are handled by the platform pattern
 (`GameState.Players` + `Data["PlayerNames"]`).
@@ -456,7 +462,7 @@ default, matching the frontend `quoridor.ts` builders):
 | ActionType | Payload | Notes |
 |---|---|---|
 | `MovePawn` | `{ "Row": int, "Col": int }` | Destination cell, absolute coordinates. Single step, straight jump, or aside jump — the engine rederives which from the current board. Row/Col are the *target* cell. |
-| `PlaceWall` | `{ "Row": int, "Col": int, "Orientation": "H"\|"V" }` | Canonical slot form of #3 (`H`: first/left unit edge, `Col ≤ 6`; `V`: first/top unit edge, `Row ≤ 6`). |
+| `PlaceWall` | `{ "Row": int, "Col": int, "Orientation": "H"\|"V" }` | Canonical slot form of #3 (`H`: first/left unit edge, `Col ≤ 7`; `V`: first/top unit edge, `Row ≤ 7`). |
 
 Payload validation: strict (extra fields rejected, out-of-range ints rejected, wrong
 `Orientation` string rejected) — the platform's `azul.invalidPayload` precedent generalizes
@@ -563,13 +569,13 @@ dictionary; the numbers/positions come from the payload params.  The animation l
 
 ## 21. Frontend architecture (roles)
 
-Exact platform pattern from Azul (#26-31) applied to Quoridor:
+Exact platform pattern from Azul (§27–§31) applied to Quoridor:
 
 | File | Role |
 |---|---|
-| `frontend/src/features/game/quoridor.ts` | Client mirror of `QuoridorState` (PascalCase, exact), safe parser `parseQuoridorState` that **rejects foreign/leaked schemas** (defensive, like `parseSilverState`/`parseAzulState`), action builders `quoridorActions.move(row,col)` / `.placeWall(row,col,'H'\|'V')`, and a **client rule mirror** for highlighting/previews only (#28). |
+| `frontend/src/features/game/quoridor.ts` | Client mirror of `QuoridorState` (PascalCase, exact), safe parser `parseQuoridorState` that **rejects foreign/leaked schemas** (defensive, like `parseSilverState`/`parseAzulState`), action builders `quoridorActions.move(row,col)` / `.placeWall(row,col,'H'\|'V')`, and a **client rule mirror** for highlighting/previews only (#27–#28). |
 | `frontend/src/features/game/QuoridorGameView.tsx` | The game page body: seat rail, board, turn strip, walls counters, log, overlays. |
-| `frontend/src/features/game/quoridorBoard.tsx` (or inline) | The physical-board component, single source of truth for geometry (#28, #30). |
+| `frontend/src/features/game/quoridorBoard.tsx` (or inline) | The physical-board component, single source of truth for geometry (#26, #30). |
 | `frontend/src/features/game/quoridorFlights.ts` | State-diff animation orchestrator (#31), same pattern as `azulFlights.ts`. |
 | `frontend/src/features/game/GamePage.tsx` | Add the `'Quoridor'` view-switch branch (same as the Azul branch). |
 | `frontend/src/features/lobby/gameMeta.ts` | Add `Quoridor: { gradient: '…' }` to `GAME_THEME` (e.g., `'from-stone-500 via-amber-700 to-stone-800'` — a wood/seafield vibe matching the physical board), and remove any `comingSoon` placeholder only at implementation time. |
@@ -629,7 +635,7 @@ per the platform's established frontend-first-class requirement. Concretely:
    (2p: amber vs slate; 4p: amber, emerald, indigo, rose) and optionally an owner-stripe on
    each wall.
 3. The **grooves are real** — visible channels, as on the physical board — not a thin
-   border trick; the double-resolution grid rendering (#28) renders grooves as physical
+   border trick; the double-resolution grid rendering (#26) renders grooves as physical
    material.
 4. The frame keeps the platform game-page frame (dark-glass header, status strip, seat
    panel + game log, chat drawer).  “Your seat” may be rotated to the bottom of the board
@@ -641,7 +647,7 @@ per the platform's established frontend-first-class requirement. Concretely:
 
 Usability over literalism: we do not rotate *opponents'* seating to face them; the board is
 one canvas, players may spin it toward their seat via a small compass control (or it stays
-fixed; see #28 note).
+fixed; see #26 note).
 
 ---
 
@@ -839,8 +845,9 @@ always still listed); walls never jumped laterally; multiple pawn jumps impossib
 (4p: 2-pawn deep wall rejected).
 
 **Walls** — slot/bounds (`wallOutOfBounds`); overlap fixtures: shared unit edge rejected
-(same-orientation overlap, offset overlap), corner-touch and `+`-junction allowed (OD-6);
-placement under a pawn allowed; `noWallsLeft`; wall count across turns.
+(same-orientation overlap, offset overlap), corner-touch and `T`-touch allowed, the `+`
+junction (identical `(Row, Col)` slot) rejected (OD-6); placement under a pawn allowed;
+`noWallsLeft`; wall count across turns.
 
 **Path preservation** — fixtures: a wall cutting the *only* path of any seat → blocked; a
 wall that cuts one of two paths → legal; a wall behind a pawn against the edge is legal
@@ -895,7 +902,8 @@ drive, colorblind redundancy.  (Same convention as Azul's manual checklist.)
 | Placing a wall under where a pawn stands | legal (groove vs cell, #8) |
 | Wall at the outer rim of the board (edge-adjacent slot) | legal so long as it doesn't jut out (slot index within range) |
 | Two walls touching at one corner | legal — corners are points, not unit edges (OD-6) |
-| `+`-junction crossing at a shared corner | legal — no shared unit edge (OD-6) |
+| `+`-junction: perpendicular walls sharing the same `(Row, Col)` slot | illegal — each crosses the other's middle (OD-6) |
+| `T`-touch: a perpendicular wall's end meeting another wall's side | legal — tangential contact only (OD-6) |
 | Two parallel walls sharing one unit edge (offset overlap) | illegal (overlap) |
 | Wall that cuts the *only* remaining path of the placing player's own pawn | illegal — path preservation covers every seat, self included |
 | Wall that cuts one of two paths of the opponent | legal |
@@ -975,8 +983,11 @@ Precedence order (fetched 2026-09-17; re-download originals at implementation ti
   straight jump is impossible.** Verify vs PDF; an isolated branch if the PDF says
   otherwise.
 - **Wall corner-touching.** “May not overlap” = may not share a unit edge; touching at a
-  single point (and the `+` junction) is the accepted physical reading ⇒
-  **OD-6 (⋆): only shared-unit-edge is forbidden.** Verify vs PDF figure.
+  single point (corner-to-corner, or end-to-side `T`-touch) is the accepted physical reading.
+  A `+` junction — perpendicular walls on the **same `(Row, Col)` slot** — visibly crosses
+  through each other's middle and is rejected ⇒
+  **OD-6 (⋆): only shared-unit-edge overlap and same-slot `+`-crossing are forbidden.**
+  Verify vs PDF figure.
 - **Endgame when all walls are spent.** Wikipedia's shortest-path “game ends by agreement”
   is a house convention, not a rule ⇒ **OD-7: play continues with pawn moves only.**
 - **Timer turn-skip.** Platform precedent (UNO/Silver/Azul: timeout = skip, never fabricate)

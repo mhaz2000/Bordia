@@ -185,9 +185,9 @@ export function RoomPage() {
         <Card className="w-full max-w-md text-center" padding="lg">
           <CardTitle>{t('room.notFound')}</CardTitle>
           <p className="text-gray-600 mt-4">{t('room.notFoundDetail')}</p>
-          <Button variant="primary" className="mt-4" asChild>
-            <a href="/lobby">{t('common.backToLobby')}</a>
-          </Button>
+<Button variant="primary" className="mt-4" asChild href="/lobby">
+  {t('common.backToLobby')}
+</Button>
         </Card>
       </div>
     )
@@ -452,11 +452,11 @@ export function RoomPage() {
                   </div>
                 </div>
 
-                {currentRoom.status === 'Started' && currentGameSessionId && (
-                  <Button variant="primary" className="w-full" asChild>
-                    <a href={`/game/${currentGameSessionId}`}>{t('room.goToGame')}</a>
-                  </Button>
-                )}
+{currentRoom.status === 'Started' && currentGameSessionId && (
+  <Button variant="primary" className="w-full" asChild href={`/game/${currentGameSessionId}`}>
+    {t('room.goToGame')}
+  </Button>
+)}
                 {isHost && currentRoom.status === 'Waiting' && (
                   <Button variant="secondary" className="w-full" onClick={() => setShowCloseModal(true)}>
                     {t('room.closeRoom')}

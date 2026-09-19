@@ -6,11 +6,10 @@ import { gameHub } from '@/shared/signalr/gameHub'
 import { getActiveT } from '@/i18n/I18nProvider'
 import type { GameState } from '@/shared/api/game'
 
-export function useGame() {
+export function useGame(sessionId: string) {
   const {
     currentSession,
     currentState,
-    isLoading,
     error,
     takenOver,
     setSession,
@@ -26,16 +25,16 @@ export function useGame() {
   })
 
   const { data: sessionData, refetch: refetchSession } = useQuery({
-    queryKey: ['game', 'session', currentSession?.id],
-    queryFn: () => gameApi.getSession(currentSession!.id),
-    enabled: !!currentSession,
+    queryKey: ['game', 'session', sessionId],
+    queryFn: () => gameApi.getSession(sessionId),
+    enabled: !!sessionId,
     staleTime: 5000,
   })
 
   const { data: stateData, refetch: refetchState } = useQuery({
-    queryKey: ['game', 'state', currentSession?.id],
-    queryFn: () => gameApi.getState(currentSession!.id),
-    enabled: !!currentSession,
+    queryKey: ['game', 'state', sessionId],
+    queryFn: () => gameApi.getState(sessionId),
+    enabled: !!sessionId,
     staleTime: 2000,
   })
 
@@ -43,7 +42,7 @@ export function useGame() {
   // state never leaks into the next one.
   useEffect(() => {
     setState(null)
-  }, [currentSession?.id, setState])
+  }, [sessionId, setState])
 
   // Prime the store from the state query once. After this the store is the
   // authoritative source for live updates (REST action responses + SignalR
@@ -57,7 +56,7 @@ export function useGame() {
     onSuccess: (state) => {
       setState(state)
       if (state.isOver) {
-        queryClient.invalidateQueries({ queryKey: ['game', 'session', currentSession?.id] })
+        queryClient.invalidateQueries({ queryKey: ['game', 'session', sessionId] })
       }
     },
   })
@@ -67,11 +66,11 @@ export function useGame() {
   })
 
   const pauseMutation = useMutation({
-    mutationFn: (sessionId: string) => gameApi.pause(sessionId),
+    mutationFn: () => gameApi.pause(sessionId),
   })
 
   const resumeMutation = useMutation({
-    mutationFn: (sessionId: string) => gameApi.resume(sessionId),
+    mutationFn: () => gameApi.resume(sessionId),
   })
 
   // SignalR event handlers
@@ -117,29 +116,32 @@ export function useGame() {
     }
   }, [])
 
-  const connectAndJoinSession = useCallback(async (sessionId: string) => {
+  const connectAndJoinSession = useCallback(async () => {
     await gameHub.connect()
     await gameHub.joinSession(sessionId)
-  }, [])
+  }, [sessionId])
 
-  const leaveSessionSignalR = useCallback(async (sessionId: string) => {
+  const leaveSessionSignalR = useCallback(async () => {
     await gameHub.leaveSession(sessionId)
-  }, [])
+  }, [sessionId])
 
   const sendAction = async (actionType: string, payload: Record<string, unknown>) => {
-    if (!currentSession) throw new Error(getActiveT()('game.noActiveSession'))
+    if (!sessionId) throw new Error(getActiveT()('game.noActiveSession'))
     return processActionMutation.mutateAsync({
-      sessionId: currentSession.id,
+      sessionId,
       actionType,
       payload,
     })
   }
 
+  // Use sessionData from query if available, otherwise fall back to store
+  const effectiveSession = sessionData || currentSession
+
   return {
-    currentSession: sessionData || currentSession,
+    currentSession: effectiveSession,
     currentState,
     takenOver,
-    isLoading: isLoading || !sessionData,
+    isLoading: !effectiveSession,
     error,
     createSession: createSessionMutation.mutateAsync,
     sendAction,

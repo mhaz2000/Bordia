@@ -6,6 +6,7 @@ using Game.Infrastructure.Realtime;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using UNO;
+using Quoridor;
 
 namespace Game.Infrastructure.Extensions;
 
@@ -34,6 +35,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<GameEngine.Core.IGame, Silver.SilverGame>();
         services.AddSingleton<GameEngine.Core.IGame, Splendor.SplendorGame>();
         services.AddSingleton<GameEngine.Core.IGame, Azul.AzulGame>();
+        services.AddSingleton<GameEngine.Core.IGame, Quoridor.QuoridorGame>();
 
         // Real-time notifier translating Application game-changed notifications into hub calls.
         services.AddScoped<MediatR.INotificationHandler<Game.Application.Realtime.GameStateChanged>, GameRealTimeNotifier>();

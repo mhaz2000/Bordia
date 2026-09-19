@@ -8,6 +8,7 @@ import { UnoGameView } from '@/features/game/UnoGameView'
 import { SilverGameView } from '@/features/game/SilverGameView'
 import { SplendorGameView } from '@/features/game/SplendorGameView'
 import { AzulGameView } from '@/features/game/AzulGameView'
+import { QuoridorGameView } from '@/features/game/QuoridorGameView'
 import { Button } from '@/shared/components/Button'
 import { Modal } from '@/shared/components/Modal'
 import { Card, CardHeader, CardTitle, CardContent } from '@/shared/components/Card'
@@ -36,7 +37,7 @@ export function GamePage() {
     takenOver,
     isLoading,
     isSendingAction,
-  } = useGame()
+  } = useGame(sessionId)
   const { user } = useAuth()
   const sessionTitle = useGameInfo(currentSession?.gameType ?? '').title
   const setSession = useGameStore((s) => s.setSession)
@@ -73,34 +74,34 @@ export function GamePage() {
   // stop listening, leave the hub group, and return to the lobby.
   useEffect(() => {
     if (!takenOver) return
-    leaveSessionSignalR(sessionId).catch(() => {})
+    leaveSessionSignalR().catch(() => {})
     disconnectGameHub().catch(() => {})
     navigate('/lobby')
-  }, [takenOver, sessionId, leaveSessionSignalR, disconnectGameHub, navigate])
+  }, [takenOver, leaveSessionSignalR, disconnectGameHub, navigate])
 
   useEffect(() => {
     const cleanup = setupSignalR()
-    connectAndJoinSession(sessionId).catch((err: Error) => {
+    connectAndJoinSession().catch((err: Error) => {
       console.error('[Game] Failed to join session:', err)
       setGameError(err.message || t('game.connectFailed'))
     })
     return () => {
       cleanup()
-      leaveSessionSignalR(sessionId)
+      leaveSessionSignalR()
     }
-  }, [sessionId, setupSignalR, connectAndJoinSession, leaveSessionSignalR])
+  }, [setupSignalR, connectAndJoinSession, leaveSessionSignalR])
 
   const handleLeave = async () => {
-    await leaveSessionSignalR(sessionId)
+    await leaveSessionSignalR()
     navigate('/lobby')
   }
 
   const handlePause = async () => {
-    if (currentSession) await pause(currentSession.id)
+    if (currentSession) await pause()
   }
 
   const handleResume = async () => {
-    if (currentSession) await resume(currentSession.id)
+    if (currentSession) await resume()
   }
 
   const actionInFlight = useRef(false)
@@ -141,7 +142,7 @@ export function GamePage() {
   }
 
   return (
-    <div className={`min-h-screen ${currentState?.gameType === "Splendor" || currentState?.gameType === "Azul" ? "bg-slate-950" : "bg-gray-50"}`}>
+    <div className={`min-h-screen ${currentState?.gameType === "Splendor" || currentState?.gameType === "Azul" || currentState?.gameType === "Quoridor" ? "bg-slate-950" : "bg-gray-50"}`}>
       <Toaster />
       <header className="bg-slate-950/85 backdrop-blur border-b border-white/10 sticky top-0 z-10 shadow-lg shadow-slate-950/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -214,6 +215,14 @@ export function GamePage() {
           />
         ) : currentState?.gameType === 'Azul' ? (
           <AzulGameView
+            state={currentState}
+            session={currentSession}
+            userId={user?.id}
+            onAction={handleAction}
+            isSending={isSendingAction}
+          />
+        ) : currentState?.gameType === 'Quoridor' ? (
+          <QuoridorGameView
             state={currentState}
             session={currentSession}
             userId={user?.id}

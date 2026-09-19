@@ -23,6 +23,7 @@ const GAME_THEME: Record<string, { gradient: string; comingSoon?: boolean }> = {
   Silver: { gradient: 'from-indigo-500 via-slate-500 to-violet-500' },
   Splendor: { gradient: 'from-emerald-500 via-teal-500 to-cyan-500' },
   Azul: { gradient: 'from-sky-400 via-blue-600 to-indigo-800' },
+  Quoridor: { gradient: 'from-amber-500 via-stone-600 to-amber-900' },
 }
 
 const DEFAULT_THEME = { gradient: 'from-slate-500 via-gray-600 to-gray-700', comingSoon: true }
